@@ -1,0 +1,17 @@
+[package]
+name = "symmetric"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aes.workspace = true
+block-modes.workspace = true
+block-padding.workspace = true
+chacha20.workspace = true
+twofish.workspace = true
+blowfish.workspace = true
+rand.workspace = true
+hex.workspace = true
+cbc = { workspace = true, features = ["alloc"] }
+pkcs7.workspace = true
+thiserror.workspace = true

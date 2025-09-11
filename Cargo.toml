@@ -1,0 +1,24 @@
+[package]
+name = "zk_he"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+symmetric = { path = "crates/symmetric" }
+
+[workspace.dependencies]
+aes = "0.8"           # AES-128/192/256 core
+block-modes = "0.9"   # For CBC, CFB, OFB, etc.
+block-padding = "0.3" # For PKCS7 padding
+chacha20 = "0.9"
+twofish = "0.6"
+blowfish = "0.9"
+
+# Utils
+rand = "0.8" # Random key/nonce generation
+hex = "0.4"  # Hex encoding for debugging
+cbc = "0.1.2"   # CBC mode
+pkcs7 = "0.4.1" # PKCS7 padding
+thiserror = "2.0.16" # Error handling
