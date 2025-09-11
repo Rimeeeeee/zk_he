@@ -4,7 +4,33 @@ use rand::RngCore;
 
 use crate::{SymmetricCipher, SymmetricError};
 
-/// AES-256-CBC with PKCS7 padding
+/// AES-256-CBC symmetric block cipher with PKCS7 padding.
+///
+/// AES (Advanced Encryption Standard) is a widely used symmetric block cipher
+/// standardized by NIST. AES-256 uses a 256-bit key for encryption, providing
+/// strong security against brute-force attacks. In CBC (Cipher Block Chaining) mode,
+/// each plaintext block is XORed with the previous ciphertext block before being
+/// encrypted, which ensures that identical plaintext blocks produce different ciphertexts.
+///
+/// Since AES operates on fixed-size 16-byte blocks, PKCS7 padding is used to
+/// pad plaintexts that are not a multiple of the block size. This allows
+/// arbitrary-length data to be securely encrypted.
+///
+/// # Features
+///
+/// - **Key size**: 256 bits (32 bytes)
+/// - **Block size**: 128 bits (16 bytes)
+/// - **Mode of operation**: CBC (Cipher Block Chaining)
+/// - **Padding**: PKCS7, to handle plaintexts of arbitrary length
+///
+/// # Security
+///
+/// AES-256-CBC is considered secure when used with:
+/// - A **random, unique IV** (initialization vector) for each encryption
+/// - Secure key management (never reuse or expose the key)
+///
+/// CBC mode is vulnerable to certain padding oracle attacks if not implemented
+/// carefully, so encryption/decryption routines must validate padding correctly.
 pub struct AesCipher;
 
 impl SymmetricCipher for AesCipher {
