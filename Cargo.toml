@@ -27,3 +27,6 @@ tfhe = { version = "1.3.3", features = ["integer"] }
 rand = "0.8"         # Random key/nonce generation
 hex = "0.4"          # Hex encoding for debugging
 thiserror = "2.0.16" # Error handling
+
+# bench
+criterion = "0.5"

@@ -7,3 +7,11 @@ edition = "2024"
 thiserror.workspace = true
 tfhe = { workspace = true, features = ["boolean", "shortint", "integer"] }
 rand.workspace = true
+
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "benchmarks"
+harness = false

@@ -14,3 +14,10 @@ cbc = { workspace = true, features = ["alloc"] }
 pkcs7.workspace = true
 thiserror.workspace = true
 camellia.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "benchmarks"
+harness = false

@@ -1,0 +1,52 @@
+name: Rust Benchmark CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [symmetric, homomorphic]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-criterion
+        run: cargo install cargo-criterion --force
+
+      - name: Run benchmarks
+        run: |
+          cd crates/${{ matrix.crate }}
+          cargo bench -- --nocapture
+
+      - name: Print benchmark summary
+        run: |
+          cd crates/${{ matrix.crate }}/target/criterion
+          echo "Benchmark summary for ${{ matrix.crate }}:"
+          # Loop over all JSON benchmark result files
+          for f in */new/estimates.json; do
+            [ -f "$f" ] || continue
+            name=$(jq -r '.id' $f)
+            mean=$(jq -r '.mean.value' $f)
+            unit=$(jq -r '.mean.unit' $f)
+            echo "| $name | $mean $unit |"
+          done
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ matrix.crate }}
+          path: crates/${{ matrix.crate }}/target/criterion
