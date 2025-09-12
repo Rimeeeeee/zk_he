@@ -58,8 +58,8 @@ mod tests {
         let (client_key, server_key) = TfheU32::keygen().unwrap();
         set_server_key(server_key.clone());
 
-        let a: u32 = 50;
-        let b: u32 = 70;
+        let a: u32 = 5;
+        let b: u32 = 7;
 
         let ct_a = TfheU32::encrypt(&client_key, &a).unwrap();
         let ct_b = TfheU32::encrypt(&client_key, &b).unwrap();
@@ -75,8 +75,8 @@ mod tests {
         let (client_key, server_key) = TfheU32::keygen().unwrap();
         set_server_key(server_key.clone());
 
-        let a: u32 = 12;
-        let b: u32 = 7;
+        let a: u32 = 2;
+        let b: u32 = 3;
 
         let ct_a = TfheU32::encrypt(&client_key, &a).unwrap();
         let ct_b = TfheU32::encrypt(&client_key, &b).unwrap();
