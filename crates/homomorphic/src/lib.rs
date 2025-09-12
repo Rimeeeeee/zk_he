@@ -16,25 +16,23 @@ pub enum HeError {
     EvalError(String),
 }
 
-/// Trait all HE schemes should implement
+/// HomomorphicEncryption trait
 pub trait HomomorphicEncryption {
-    type SecretKey;
-    type PublicKey;
+    type SecretKey;   // client/secret key (used for encrypt/decrypt)
+    type PublicKey;   // server/public key (used for evaluation)
     type Ciphertext;
     type Plaintext;
 
-    /// Generate a new keypair
+    /// Generate (secret_key, public/server_key)
     fn keygen() -> Result<(Self::SecretKey, Self::PublicKey), HeError>;
 
-    /// Encrypt a plaintext
-    fn encrypt(pk: &Self::PublicKey, pt: &Self::Plaintext) -> Result<Self::Ciphertext, HeError>;
+    /// ENCRYPT uses the SecretKey (client-side)
+    fn encrypt(sk: &Self::SecretKey, pt: &Self::Plaintext) -> Result<Self::Ciphertext, HeError>;
 
-    /// Decrypt a ciphertext
+    /// DECRYPT uses the SecretKey (client-side)
     fn decrypt(sk: &Self::SecretKey, ct: &Self::Ciphertext) -> Result<Self::Plaintext, HeError>;
 
-    /// Homomorphic addition
+    /// Homomorphic operations (server-side). They may require server key to be set globally
     fn add(ct1: &Self::Ciphertext, ct2: &Self::Ciphertext) -> Result<Self::Ciphertext, HeError>;
-
-    /// Homomorphic multiplication
     fn mul(ct1: &Self::Ciphertext, ct2: &Self::Ciphertext) -> Result<Self::Ciphertext, HeError>;
 }

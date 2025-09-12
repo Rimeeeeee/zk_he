@@ -21,7 +21,7 @@ cbc = "0.1.2"         # CBC mode
 pkcs7 = "0.4.1"       # PKCS7 padding
 
 # HE
-tfhe = "1.3.3"
+tfhe = { version = "1.3.3", features = ["integer"] }
 
 # Utils
 rand = "0.8"         # Random key/nonce generation
