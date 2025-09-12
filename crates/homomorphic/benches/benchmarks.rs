@@ -2,7 +2,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use homomorphic::{HomomorphicEncryption, tfhe::TfheU32};
 
 fn bench_he(c: &mut Criterion) {
-    let (sk, pk) = TfheU32::keygen().unwrap();
+    let (pk, sk) = TfheU32::keygen().unwrap();
     let a: u32 = 42;
     let b: u32 = 7;
 
@@ -22,7 +22,7 @@ fn bench_he(c: &mut Criterion) {
     });
 
     c.bench_function("decrypt", |bch| {
-        bch.iter(|| TfheU32::decrypt(&sk, &ct_a).unwrap())
+        bch.iter(|| TfheU32::decrypt(&pk, &ct_a).unwrap())
     });
 }
 

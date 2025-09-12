@@ -32,18 +32,26 @@ jobs:
           cd crates/${{ matrix.crate }}
           cargo bench -- --nocapture
 
+      - name: Prepare benchmark folder
+        run: |
+          TARGET_DIR="crates/${{ matrix.crate }}/target/criterion"
+          mkdir -p "$TARGET_DIR"
+
       - name: Print benchmark summary
         run: |
-          cd crates/${{ matrix.crate }}/target/criterion
-          echo "Benchmark summary for ${{ matrix.crate }}:"
-          # Loop over all JSON benchmark result files
-          for f in */new/estimates.json; do
-            [ -f "$f" ] || continue
-            name=$(jq -r '.id' $f)
-            mean=$(jq -r '.mean.value' $f)
-            unit=$(jq -r '.mean.unit' $f)
-            echo "| $name | $mean $unit |"
-          done
+          CRITERION_DIR="crates/${{ matrix.crate }}/target/criterion"
+          if [ -d "$CRITERION_DIR" ]; then
+            echo "Benchmark summary for ${{ matrix.crate }}:"
+            for f in "$CRITERION_DIR"/*/new/estimates.json; do
+              [ -f "$f" ] || continue
+              name=$(jq -r '.id' $f)
+              mean=$(jq -r '.mean.value' $f)
+              unit=$(jq -r '.mean.unit' $f)
+              echo "| $name | $mean $unit |"
+            done
+          else
+            echo "No benchmark results found for ${{ matrix.crate }}"
+          fi
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
