@@ -13,8 +13,7 @@ aes = "0.8"           # AES-128/192/256 core
 block-modes = "0.9"   # For CBC, CFB, OFB, etc.
 block-padding = "0.3" # For PKCS7 padding
 chacha20 = "0.9"
-twofish = "0.6"
-blowfish = "0.9"
+camellia = "0.1"
 
 # Utils
 rand = "0.8" # Random key/nonce generation
