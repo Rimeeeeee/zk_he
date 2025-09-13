@@ -1,10 +1,13 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use homomorphic::{HomomorphicEncryption, tfhe::TfheU32};
+use tfhe::set_server_key;
 
 fn bench_he(c: &mut Criterion) {
     let (pk, sk) = TfheU32::keygen().unwrap();
-    let a: u32 = 42;
-    let b: u32 = 7;
+    set_server_key(sk);
+
+    let a: u32 = 2;
+    let b: u32 = 8;
 
     c.bench_function("encrypt u32", |bch| {
         bch.iter(|| TfheU32::encrypt(&pk, &a).unwrap())
