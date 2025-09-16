@@ -25,13 +25,13 @@ impl HomomorphicEncryption for TfheU32 {
         Ok(ct.decrypt(sk))
     }
 
-    fn add(ct1: &FheUint32, ct2: &FheUint32) -> Result<FheUint32,HeError> {
-    Ok(ct1 + ct2)
-}
+    fn add(ct1: &FheUint32, ct2: &FheUint32) -> Result<FheUint32, HeError> {
+        Ok(ct1 + ct2)
+    }
 
-fn mul(ct1: &FheUint32, ct2: &FheUint32) -> Result<FheUint32,HeError> {
-    Ok(ct1 * ct2)
-}
+    fn mul(ct1: &FheUint32, ct2: &FheUint32) -> Result<FheUint32, HeError> {
+        Ok(ct1 * ct2)
+    }
 }
 
 #[cfg(test)]

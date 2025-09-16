@@ -1,0 +1,9 @@
+[package]
+name = "transciphering"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+homomorphic.workspace = true
+symmetric.workspace = true
+tfhe.workspace = true
