@@ -2,10 +2,10 @@
 
 /// AES Modules
 pub mod aes;
-/// ChaCha20 Modules
-pub mod chacha;
 /// Camellia Modules
 pub mod camellia;
+/// ChaCha20 Modules
+pub mod chacha;
 
 /// A trait for symmetric encryption algorithms.
 pub trait SymmetricCipher {

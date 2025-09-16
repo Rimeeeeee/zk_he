@@ -967,7 +967,9 @@ dependencies = [
 name = "transciphering"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "homomorphic",
+ "rand",
  "symmetric",
  "tfhe",
 ]

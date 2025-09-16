@@ -181,3 +181,62 @@ fn double_round(state: &mut [FheUint32; 16]) {
     state[9] = c3;
     state[14] = d3;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use symmetric::SymmetricCipher;
+    use tfhe::set_server_key;
+
+    /// Test 1: Roundtrip correctness
+    /// Encrypt a block with ChaCha20, then homomorphically decrypt and check it matches the original.
+    #[test]
+    fn test_homomorphic_decrypt_roundtrip() {
+        let (client_key, server_key) = TfheU32::keygen().unwrap();
+        set_server_key(server_key.clone());
+
+        // Generate ChaCha20 key and encrypt under HE
+        // Generate ChaCha20 key as 32 bytes
+        let sym_key: [u8; 32] = rand::random();
+
+        // Encrypt the key under HE (split into 8 u32 words)
+        let mut enc_key = Vec::new();
+        for chunk in sym_key.chunks(4) {
+            let word = u32::from_le_bytes(chunk.try_into().unwrap());
+            enc_key.push(TfheU32::encrypt(&client_key, &word).unwrap());
+        }
+
+        // Symmetric plaintext block
+        let plaintext_block: u32 = 0xDEADBEEF;
+        let mut sym_ct_bytes = plaintext_block.to_le_bytes();
+
+        // Encrypt using ChaCha20
+        let ciphertext = ChaCha20Cipher::encrypt(&sym_key, &[0u8; 12], &mut sym_ct_bytes).unwrap();
+
+        // Homomorphic decryption
+        let plaintext_fhe =
+            ChaCha20Cipher::homomorphic_decrypt(&ciphertext, &enc_key, &client_key).unwrap();
+        let decrypted = TfheU32::decrypt(&client_key, &plaintext_fhe).unwrap();
+
+        assert_eq!(decrypted, plaintext_block);
+    }
+
+    /// Test 2: Minimum ciphertext length validation
+    /// Ensures inputs shorter than 4 bytes produce an error.
+    #[test]
+    fn test_homomorphic_minimum_ct_size() {
+        let (client_key, _server_key) = TfheU32::keygen().unwrap();
+
+        // Proper encrypted key
+        let sym_key: [u32; 8] = rand::random();
+        let mut enc_key = Vec::new();
+        for k in sym_key.iter() {
+            enc_key.push(TfheU32::encrypt(&client_key, k).unwrap());
+        }
+
+        let short_ct: [u8; 2] = [0x12, 0x34]; // less than 4 bytes
+        let result = ChaCha20Cipher::homomorphic_decrypt(&short_ct, &enc_key, &client_key);
+
+        assert!(result.is_err());
+    }
+}

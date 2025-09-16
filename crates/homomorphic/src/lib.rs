@@ -18,8 +18,8 @@ pub enum HeError {
 
 /// HomomorphicEncryption trait
 pub trait HomomorphicEncryption {
-    type SecretKey;   // client/secret key (used for encrypt/decrypt)
-    type PublicKey;   // server/public key (used for evaluation)
+    type SecretKey; // client/secret key (used for encrypt/decrypt)
+    type PublicKey; // server/public key (used for evaluation)
     type Ciphertext;
     type Plaintext;
 

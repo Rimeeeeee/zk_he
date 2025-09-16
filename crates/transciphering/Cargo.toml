@@ -7,3 +7,11 @@ edition = "2024"
 homomorphic.workspace = true
 symmetric.workspace = true
 tfhe.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "benchmarks"
+harness = false
