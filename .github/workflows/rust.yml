@@ -2,21 +2,36 @@ name: Rust
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose --workspace
-    - name: Run tests
-      run: cargo test --verbose --workspace
+      - uses: actions/checkout@v4
+
+      # Install Rust (stable toolchain)
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Install nextest via cargo-binstall (fast) or fallback to cargo install
+      - name: Install cargo-nextest
+        run: |
+          if ! command -v cargo-binstall &> /dev/null; then
+            curl -L https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          fi
+          cargo binstall cargo-nextest --no-confirm
+
+      # Build workspace
+      - name: Build
+        run: cargo build --verbose --workspace
+
+      # Run tests with nextest
+      - name: Run tests
+        run: cargo nextest run --workspace --verbose

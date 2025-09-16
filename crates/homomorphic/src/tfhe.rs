@@ -63,7 +63,6 @@ mod tests {
 
         let ct_a = TfheU32::encrypt(&client_key, &a).unwrap();
         let ct_b = TfheU32::encrypt(&client_key, &b).unwrap();
-
         let ct_sum = TfheU32::add(&ct_a, &ct_b).unwrap();
         let dec_sum = TfheU32::decrypt(&client_key, &ct_sum).unwrap();
 
