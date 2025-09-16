@@ -201,7 +201,7 @@ fn double_round(state: &mut [FheUint32; 16]) {
 mod tests {
     use super::*;
     use homomorphic::tfhe::TfheU32;
-    use symmetric::{SymmetricCipher, chacha::ChaCha20Cipher};
+    use symmetric::chacha::ChaCha20Cipher;
     use tfhe::{FheUint32, set_server_key};
 
     /// Minimal roundtrip test:
@@ -212,18 +212,91 @@ mod tests {
     /// Note: this test is correctness-focused. It will be slow because TFHE ops are slow.
     #[test]
     fn test_homomorphic_decrypt_roundtrip_fixed() {
-        // Generate TFHE keypair
+        // --- helpers: ChaCha20 reference block ---
+        fn rotl(v: u32, c: u32) -> u32 {
+            v.rotate_left(c)
+        }
+
+        fn quarter_index(state: &mut [u32; 16], a: usize, b: usize, c: usize, d: usize) {
+            let mut x = state[a];
+            let mut y = state[b];
+            let mut z = state[c];
+            let mut w = state[d];
+
+            x = x.wrapping_add(y);
+            w ^= x;
+            w = rotl(w, 16);
+            z = z.wrapping_add(w);
+            y ^= z;
+            y = rotl(y, 12);
+            x = x.wrapping_add(y);
+            w ^= x;
+            w = rotl(w, 8);
+            z = z.wrapping_add(w);
+            y ^= z;
+            y = rotl(y, 7);
+
+            state[a] = x;
+            state[b] = y;
+            state[c] = z;
+            state[d] = w;
+        }
+
+        fn chacha20_block(key: &[u8; 32], counter: u32, nonce: &[u8; 12]) -> [u8; 64] {
+            let mut state = [0u32; 16];
+            // constants "expand 32-byte k"
+            state[0] = 0x61707865;
+            state[1] = 0x3320646e;
+            state[2] = 0x79622d32;
+            state[3] = 0x6b206574;
+            // key (little-endian u32 words)
+            for i in 0..8 {
+                state[4 + i] = u32::from_le_bytes([
+                    key[i * 4],
+                    key[i * 4 + 1],
+                    key[i * 4 + 2],
+                    key[i * 4 + 3],
+                ]);
+            }
+            state[12] = counter;
+            state[13] = u32::from_le_bytes([nonce[0], nonce[1], nonce[2], nonce[3]]);
+            state[14] = u32::from_le_bytes([nonce[4], nonce[5], nonce[6], nonce[7]]);
+            state[15] = u32::from_le_bytes([nonce[8], nonce[9], nonce[10], nonce[11]]);
+
+            let initial = state;
+
+            // 20 rounds = 10 double-rounds
+            for _ in 0..10 {
+                // column rounds
+                quarter_index(&mut state, 0, 4, 8, 12);
+                quarter_index(&mut state, 1, 5, 9, 13);
+                quarter_index(&mut state, 2, 6, 10, 14);
+                quarter_index(&mut state, 3, 7, 11, 15);
+                // diagonal rounds
+                quarter_index(&mut state, 0, 5, 10, 15);
+                quarter_index(&mut state, 1, 6, 11, 12);
+                quarter_index(&mut state, 2, 7, 8, 13);
+                quarter_index(&mut state, 3, 4, 9, 14);
+            }
+
+            let mut out = [0u8; 64];
+            for i in 0..16 {
+                let word = state[i].wrapping_add(initial[i]).to_le_bytes();
+                out[i * 4..i * 4 + 4].copy_from_slice(&word);
+            }
+            out
+        }
+
+        // --- TFHE setup ---
         let (client_key, server_key) = TfheU32::keygen().unwrap();
         set_server_key(server_key.clone());
 
-        // Fixed 256-bit ChaCha20 key (32 bytes)
         let sym_key_bytes: [u8; 32] = [
             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
             0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
             0x1d, 0x1e, 0x1f, 0x20,
         ];
 
-        // Build HE-encrypted key words (8 × u32 little-endian words)
         let mut enc_key: Vec<FheUint32> = Vec::with_capacity(8);
         for i in 0..8 {
             let w = u32::from_le_bytes([
@@ -235,22 +308,34 @@ mod tests {
             enc_key.push(TfheU32::encrypt(&client_key, &w).unwrap());
         }
 
-        // Plaintext block and encrypt it with ChaCha20 (stream cipher).
-        // We'll use nonce = [0;12] and counter = 0 (this matches homomorphic implementation).
-        let plaintext_block: u32 = 0xDEADBEEF;
-        let mut block_bytes = plaintext_block.to_le_bytes();
-        let nonce = [0u8; 12];
-        // This overwrites block_bytes with ciphertext bytes (ChaCha20 stream XOR).
-        ChaCha20Cipher::encrypt(&sym_key_bytes, &nonce, &mut block_bytes).unwrap();
+        // plaintext
+        let plaintext_word: u32 = 0xDEADBEEF;
+        println!("plaintext = {:08x}", plaintext_word);
 
-        // Now call the homomorphic transcipher (server-side).
+        // software keystream
+        let nonce = [0u8; 12];
+        let sw_block = chacha20_block(&sym_key_bytes, 0, &nonce);
+        let ks0_sw = u32::from_le_bytes([sw_block[0], sw_block[1], sw_block[2], sw_block[3]]);
+        println!("software ks0 = {:08x}", ks0_sw);
+
+        // ciphertext = plaintext ^ keystream
+        let ct_word = plaintext_word ^ ks0_sw;
+        let mut block_bytes = [0u8; 64];
+        block_bytes[..4].copy_from_slice(&ct_word.to_le_bytes());
+        for i in 4..64 {
+            block_bytes[i] = sw_block[i]; // keystream for rest
+        }
+
+        println!("ciphertext[0..4] = {:02x?}", &block_bytes[..4]);
+
+        // homomorphic decrypt
         let ct_fhe = ChaCha20Cipher::homomorphic_decrypt(&block_bytes, &enc_key, &client_key)
             .expect("homomorphic_decrypt failed");
 
-        // Client decrypts the FHE result to obtain the plaintext.
-        let decrypted: u32 = TfheU32::decrypt(&client_key, &ct_fhe).expect("TFHE decrypt failed");
+        let decrypted: u32 = TfheU32::decrypt(&client_key, &ct_fhe).unwrap();
+        println!("decrypted = {:08x}", decrypted);
 
-        assert_eq!(decrypted, plaintext_block);
+        assert_eq!(decrypted, plaintext_word, "homomorphic roundtrip failed");
     }
 
     /// Minimal validation: ensure short ciphertext returns error.
