@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        crate: [symmetric, homomorphic]
+        crate: [symmetric, homomorphic, transciphering]
 
     steps:
       - name: Checkout repository
