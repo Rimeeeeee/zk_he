@@ -1,12 +1,14 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use homomorphic::{HomomorphicEncryption, tfhe::TfheU32};
 use symmetric::{SymmetricCipher, chacha::ChaCha20Cipher};
+use tfhe::set_server_key;
 use transciphering::HomomorphicDecrypt;
 
 /// Benchmark homomorphic decryption (transciphering) of a 32-bit ChaCha20 block
 fn bench_tranciphering(c: &mut Criterion) {
     // --- Key generation ---
-    let (client_key, _server_key) = TfheU32::keygen().unwrap();
+    let (client_key, server_key) = TfheU32::keygen().unwrap();
+    set_server_key(server_key);
 
     // --- Generate a random ChaCha20 key and encrypt under HE ---
     let sym_key: [u8; 32] = rand::random();
