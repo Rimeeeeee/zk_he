@@ -11,6 +11,7 @@ resolver = "2"
 [workspace.dependencies]
 symmetric = { path = "crates/symmetric" }
 homomorphic = { path = "crates/homomorphic" }
+transciphering = { path = "crates/transciphering" }
 
 aes = "0.8"           # AES-128/192/256 core
 block-modes = "0.9"   # For CBC, CFB, OFB, etc.
