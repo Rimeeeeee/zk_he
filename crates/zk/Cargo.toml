@@ -1,0 +1,17 @@
+[package]
+name = "zk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror.workspace = true
+ark-std.workspace = true
+ark-ff.workspace = true
+ark-ec.workspace = true
+ark-bls12-381.workspace = true
+
+# PLONK implementation (not on crates.io, use git)
+plonky2.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true

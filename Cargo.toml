@@ -12,6 +12,7 @@ resolver = "2"
 symmetric = { path = "crates/symmetric" }
 homomorphic = { path = "crates/homomorphic" }
 transciphering = { path = "crates/transciphering" }
+zk = { path = "crates/zk" }
 
 aes = "0.8"           # AES-128/192/256 core
 block-modes = "0.9"   # For CBC, CFB, OFB, etc.
@@ -23,6 +24,13 @@ pkcs7 = "0.4.1"       # PKCS7 padding
 
 # HE
 tfhe = { version = "1.3.3", features = ["integer"] }
+
+# Arkworks ecosystem
+ark-std = "0.4"
+ark-ff = "0.4"
+ark-ec = "0.4"
+ark-bls12-381 = "0.4"
+plonky2 = "1.1.0"
 
 # Utils
 rand = "0.8"         # Random key/nonce generation
