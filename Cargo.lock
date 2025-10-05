@@ -629,8 +629,10 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 name = "homomorphic"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "criterion",
  "rand",
+ "serde",
  "tfhe",
  "thiserror",
 ]
@@ -1343,6 +1345,21 @@ checksum = "be4d6b5f19ff7664e8c98d03e2139cb510db9b0a60b55f8e8709b689d939b6bc"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tranciphering"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "hex",
+ "homomorphic",
+ "rand",
+ "symmetric",
+ "tfhe",
+ "thiserror",
+ "transciphering",
+ "zk",
 ]
 
 [[package]]

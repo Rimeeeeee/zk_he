@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        crate: [symmetric, homomorphic, transciphering]
+        crate: [symmetric, homomorphic, transciphering, zk]
 
     steps:
       - name: Checkout repository
@@ -32,29 +32,29 @@ jobs:
           cd crates/${{ matrix.crate }}
           cargo bench -- --nocapture
 
-      - name: Prepare benchmark folder
-        run: |
-          TARGET_DIR="crates/${{ matrix.crate }}/target/criterion"
-          mkdir -p "$TARGET_DIR"
-
-      - name: Print benchmark summary
+      - name: Append benchmark summary to root file
         run: |
           CRITERION_DIR="crates/${{ matrix.crate }}/target/criterion"
+          ROOT_SUMMARY_FILE="$GITHUB_WORKSPACE/benchmark_summary.txt"
+          echo "### Benchmark summary for ${{ matrix.crate }}" >> "$ROOT_SUMMARY_FILE"
           if [ -d "$CRITERION_DIR" ]; then
-            echo "Benchmark summary for ${{ matrix.crate }}:"
             for f in "$CRITERION_DIR"/*/new/estimates.json; do
               [ -f "$f" ] || continue
               name=$(jq -r '.id' $f)
               mean=$(jq -r '.mean.value' $f)
               unit=$(jq -r '.mean.unit' $f)
-              echo "| $name | $mean $unit |"
+              echo "| $name | $mean $unit |" >> "$ROOT_SUMMARY_FILE"
             done
           else
-            echo "No benchmark results found for ${{ matrix.crate }}"
+            echo "No benchmark results found for ${{ matrix.crate }}" >> "$ROOT_SUMMARY_FILE"
           fi
+
+      - name: Print root benchmark summary
+        run: |
+          cat "$GITHUB_WORKSPACE/benchmark_summary.txt"
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-${{ matrix.crate }}
-          path: crates/${{ matrix.crate }}/target/criterion
+          name: benchmark-results
+          path: benchmark_summary.txt

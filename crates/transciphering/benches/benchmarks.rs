@@ -1,38 +1,42 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use homomorphic::{HomomorphicEncryption, tfhe::TfheU32};
+use rand::RngCore;
 use symmetric::{SymmetricCipher, chacha::ChaCha20Cipher};
-use tfhe::set_server_key;
-use transciphering::HomomorphicDecrypt;
+use tfhe::{ConfigBuilder, generate_keys, set_server_key};
+use transciphering::{Transcipher, chacha::ChaChaTfheTranscipher};
 
-/// Benchmark homomorphic decryption (transciphering) of a 32-bit ChaCha20 block
-fn bench_tranciphering(c: &mut Criterion) {
-    // --- Key generation ---
-    let (client_key, server_key) = TfheU32::keygen().unwrap();
+/// Benchmark full ChaCha20 → TFHE transciphering pipeline
+fn bench_transciphering(c: &mut Criterion) {
+    // --- TFHE KeyGen ---
+    let config = ConfigBuilder::default().build();
+    let (client_key, server_key) = generate_keys(config);
     set_server_key(server_key);
 
-    // --- Generate a random ChaCha20 key and encrypt under HE ---
-    let sym_key: [u8; 32] = rand::random();
-    let mut enc_key = Vec::new();
-    for chunk in sym_key.chunks(4) {
-        let word = u32::from_le_bytes(chunk.try_into().unwrap());
-        enc_key.push(TfheU32::encrypt(&client_key, &word).unwrap());
-    }
+    // --- Symmetric key + nonce ---
+    let sym_key = ChaCha20Cipher::keygen();
+    let mut nonce = [0u8; 12];
+    rand::thread_rng().fill_bytes(&mut nonce);
 
-    // --- Symmetric plaintext block ---
-    let plaintext_block: u32 = rand::random();
-    let mut sym_ct_bytes = plaintext_block.to_le_bytes();
+    // --- Random plaintext block ---
+    let plaintext: [u8; 32] = rand::random();
 
-    // --- Symmetric encryption (ChaCha20) ---
-    let _ciphertext = ChaCha20Cipher::encrypt(&sym_key, &[0u8; 12], &mut sym_ct_bytes).unwrap();
+    // --- Encrypt via transciphering ---
+    let (ciphertext, enc_key_cts) =
+        ChaChaTfheTranscipher::transcipher_encrypt(&sym_key, &nonce, &client_key, &plaintext)
+            .expect("transcipher encrypt");
 
     // --- Benchmark homomorphic decryption ---
-    c.bench_function("ChaCha20 → TFHE transciphering", |b| {
+    c.bench_function("ChaCha20 + TFHE transcipher decrypt", |b| {
         b.iter(|| {
-            let _pt_fhe =
-                ChaCha20Cipher::homomorphic_decrypt(&sym_ct_bytes, &enc_key, &client_key).unwrap();
+            let _decrypted = ChaChaTfheTranscipher::transcipher_decrypt(
+                &nonce,
+                &client_key,
+                &enc_key_cts,
+                &ciphertext,
+            )
+            .unwrap();
         });
     });
 }
 
-criterion_group!(benches, bench_tranciphering);
+criterion_group!(benches, bench_transciphering);
 criterion_main!(benches);

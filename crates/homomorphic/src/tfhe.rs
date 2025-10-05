@@ -1,7 +1,9 @@
 use crate::{HeError, HomomorphicEncryption};
+use serde::{Deserialize, Serialize};
 use tfhe::prelude::*;
 use tfhe::{ConfigBuilder, FheUint32, generate_keys};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TfheU32;
 
 impl HomomorphicEncryption for TfheU32 {

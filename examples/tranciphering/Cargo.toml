@@ -1,0 +1,15 @@
+[package]
+name = "tranciphering"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rand.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+symmetric.workspace = true
+homomorphic.workspace = true
+transciphering.workspace = true
+zk.workspace = true
+bincode.workspace = true
+tfhe.workspace = true
