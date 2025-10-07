@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Rust
+      - name: Set up Rust (nightly)
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
 
       - name: Install cargo-criterion
@@ -30,7 +30,7 @@ jobs:
       - name: Run benchmarks
         run: |
           cd crates/${{ matrix.crate }}
-          cargo bench -- --nocapture
+          cargo +nightly bench -- --nocapture
 
       - name: Append benchmark summary to root file
         run: |
