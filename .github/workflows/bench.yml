@@ -50,8 +50,7 @@ jobs:
           fi
 
       - name: Print root benchmark summary
-        run: |
-          cat "$GITHUB_WORKSPACE/benchmark_summary.txt"
+        run: cat "$GITHUB_WORKSPACE/benchmark_summary.txt"
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4

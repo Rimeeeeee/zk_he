@@ -10,9 +10,13 @@ fn main() {
         return;
     }
 
-    match args[1].as_str() {
-        "server" => server::run().unwrap(),
-        "client" => client::run().unwrap(),
-        _ => println!("Unknown mode, use 'server' or 'client'"),
+    match args[1].trim_start_matches('-') {
+        "server" => server::run(),
+        "client" => client::run(),
+        _ => {
+            println!("Unknown mode, use 'server' or 'client'");
+            Ok(())
+        }
     }
+    .unwrap();
 }
