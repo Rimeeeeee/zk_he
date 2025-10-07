@@ -16,11 +16,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install Rust (stable toolchain)
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+      # Install nightly Rust (required for plonky2)
+      - name: Set up nightly Rust
+        uses: dtolnay/rust-toolchain@nightly
 
-      # Install nextest via cargo-binstall (fast) or fallback to cargo install
+      # Optional: add rustfmt and clippy if you use them
+      - name: Add components
+        run: rustup component add rustfmt clippy
+
+      # Install nextest (fast test runner)
       - name: Install cargo-nextest
         run: |
           if ! command -v cargo-binstall &> /dev/null; then
@@ -30,8 +34,8 @@ jobs:
 
       # Build workspace
       - name: Build
-        run: cargo build --verbose --workspace
+        run: cargo +nightly build --workspace --verbose
 
       # Run tests with nextest
       - name: Run tests
-        run: cargo nextest run --workspace --verbose
+        run: cargo +nightly nextest run --workspace --verbose

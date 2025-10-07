@@ -1,7 +1,10 @@
 use crate::{HeError, HomomorphicEncryption};
+use serde::{Deserialize, Serialize};
+use tfhe::ClientKey;
 use tfhe::prelude::*;
 use tfhe::{ConfigBuilder, FheUint32, generate_keys};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TfheU32;
 
 impl HomomorphicEncryption for TfheU32 {
@@ -31,6 +34,39 @@ impl HomomorphicEncryption for TfheU32 {
 
     fn mul(ct1: &FheUint32, ct2: &FheUint32) -> Result<FheUint32, HeError> {
         Ok(ct1 * ct2)
+    }
+}
+
+impl TfheU32 {
+    pub fn add(a: &FheUint32, b: &FheUint32) -> Result<FheUint32, HeError> {
+        // Homomorphic addition (mod 2^32)
+        Ok(a + b)
+    }
+
+    pub fn encrypt_public_with_client(ck: &ClientKey, value: u32) -> Result<FheUint32, HeError> {
+        FheUint32::try_encrypt(value, ck).map_err(|_| HeError::EncryptError)
+    }
+
+    pub fn xor(a: &FheUint32, b: &FheUint32) -> Result<FheUint32, HeError> {
+        // tfhe-rs implements bitwise operations natively:
+        Ok(a ^ b)
+    }
+
+    pub fn rotl(a: &FheUint32, n: u32) -> Result<FheUint32, HeError> {
+        // tfhe-rs supports rotate-left and rotate-right directly on FheUint32
+        Ok(a.rotate_left(n))
+    }
+
+    pub fn rotr(a: &FheUint32, n: u32) -> Result<FheUint32, HeError> {
+        Ok(a.rotate_right(n))
+    }
+
+    pub fn and(a: &FheUint32, b: &FheUint32) -> Result<FheUint32, HeError> {
+        Ok(a & b)
+    }
+
+    pub fn or(a: &FheUint32, b: &FheUint32) -> Result<FheUint32, HeError> {
+        Ok(a | b)
     }
 }
 

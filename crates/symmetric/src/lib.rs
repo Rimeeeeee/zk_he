@@ -13,11 +13,13 @@ pub trait SymmetricCipher {
     type Nonce;
 
     fn keygen() -> Self::Key;
+
     fn encrypt(
         key: &Self::Key,
         nonce: &Self::Nonce,
         plaintext: &mut [u8],
     ) -> Result<Vec<u8>, SymmetricError>;
+
     fn decrypt(
         key: &Self::Key,
         nonce: &Self::Nonce,
