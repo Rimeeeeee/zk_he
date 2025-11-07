@@ -1,8 +1,9 @@
 use rocksdb::{DB, Options};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct Database {
-    pub db: Arc<DB>,
+    pub db: Arc<rocksdb::DB>,
 }
 
 impl Database {

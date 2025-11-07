@@ -5,7 +5,7 @@ use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::{db::Database, models::TokenRecord};
 
-#[post("/auth/token")]
+#[post("/token")]
 async fn issue_token(db: web::Data<Database>) -> HttpResponse {
     let token: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)

@@ -2,7 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import AppLayout from "./components/Layout";
 import Home from "./pages/Home";
 import CreateVote from "./pages/CreateVote";
-import GetToken from "./pages/getToken";
+import GetToken from "./pages/GetToken";
 
 export default function App() {
   return (
