@@ -1,6 +1,7 @@
 //! Homomorphic Encryption Trait Definition
 
 pub mod tfhe;
+pub mod tfhe_string;
 
 use thiserror::Error;
 
@@ -14,6 +15,8 @@ pub enum HeError {
     DecryptError,
     #[error("Evaluation error: {0}")]
     EvalError(String),
+    #[error("Evaluation error: {0}")]
+    UnsupportedOperation(String),
 }
 
 /// HomomorphicEncryption trait
