@@ -1,9 +1,9 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
 
-mod routes;
 mod db;
 mod models;
+mod routes;
 use db::Database;
 
 use crate::routes::{auth, ballot, election};
