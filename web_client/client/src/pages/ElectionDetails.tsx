@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { initWasm, getOrCreateKeys, encryptVote } from "../wasm/wasmKeys";
+import { initWasm, getOrCreateKeys, encryptVote } from "../utils/wasmKeys";
 
 interface Candidate {
   id: number;
