@@ -3,35 +3,36 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-interface TokenRecord {
-  voterId: string;
-  token: string;
-}
-
 export default function GetToken() {
   const [voterId, setVoterId] = useState("");
-  const [record, setRecord] = useState<TokenRecord | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleGenerate = async () => {
-    if (!voterId.trim()) return alert("Please enter a valid Voter ID");
+    if (!voterId.trim()) {
+      alert("Please enter a valid Voter ID");
+      return;
+    }
+
     setLoading(true);
     setError("");
-    setRecord(null);
+    setToken(null);
 
     try {
-      // Call backend API
+      // Request a real token from backend
       const res = await axios.post("http://localhost:8080/auth/token");
-      const token = res.data.token;
 
-      // Save to localStorage
+      const tokenValue = res.data.token;
+      if (!tokenValue) throw new Error("No token returned from server");
+
+      // Save token locally (linked to voterId)
       localStorage.setItem("voter_id", voterId);
-      localStorage.setItem("voter_token", token);
+      localStorage.setItem("voter_token", tokenValue);
 
-      setRecord({ voterId, token });
-    } catch (err) {
+      setToken(tokenValue);
+    } catch (err: any) {
       console.error(err);
       setError("Failed to generate token. Please try again.");
     } finally {
@@ -53,11 +54,12 @@ export default function GetToken() {
         className="z-10 flex flex-col items-center text-center space-y-6 p-6"
       >
         <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-linear-to-r from-cyan-400 to-purple-500">
-          🎟️ Your Voter Token
+          🎟️ Get Your Voter Token
         </h1>
 
         <p className="text-gray-400 max-w-xl">
-          Enter your registered ID to get your secure, permanent voting token.
+          Enter your registered ID to get your secure voting token from the
+          election server.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4">
@@ -81,26 +83,24 @@ export default function GetToken() {
           <p className="text-red-400 text-sm font-medium pt-2">{error}</p>
         )}
 
-        {record && (
+        {token && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center space-y-4"
           >
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-6 py-4 font-mono text-cyan-400 shadow-inner">
-              {record.token}
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-6 py-4 font-mono text-cyan-400 shadow-inner break-all">
+              {token}
             </div>
             <p className="text-gray-500 text-sm">
               Linked to Voter ID:{" "}
-              <span className="text-purple-400 font-medium">
-                {record.voterId}
-              </span>
+              <span className="text-purple-400 font-medium">{voterId}</span>
             </p>
             <button
               onClick={() => navigate("/elections")}
               className="px-6 py-2 bg-purple-700 hover:bg-purple-600 rounded-lg text-white shadow-md transition-transform hover:scale-105"
             >
-              Proceed to Vote →
+              Proceed to Elections →
             </button>
           </motion.div>
         )}
