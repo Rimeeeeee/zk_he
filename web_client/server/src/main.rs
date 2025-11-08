@@ -1,12 +1,15 @@
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, web};
+use actix_web::{
+    App, HttpServer,
+    web::{self, service},
+};
 
 mod db;
 mod models;
 mod routes;
 use db::Database;
 
-use crate::routes::{auth, ballot, election};
+use crate::routes::{auth, ballot, election, key};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -25,6 +28,7 @@ async fn main() -> std::io::Result<()> {
             .service(auth::routes())
             .service(election::routes())
             .service(ballot::routes())
+            .service(key::routes())
     })
     .bind(("127.0.0.1", 8080))?
     .run()

@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import { initWasm, getOrCreateKeys, encryptVote } from "../wasm/wasmKeys";
 
 interface Candidate {
   id: number;
-  name: string;
+  label: string;
 }
 
 interface Election {
@@ -26,10 +27,11 @@ export default function ElectionDetail() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    axios
-      .get(`http://localhost:8080/elections/${id}`)
-      .then((res) => setElection(res.data))
-      .catch(console.error);
+    (async () => {
+      await initWasm();
+      const res = await axios.get(`http://localhost:8080/elections/${id}`);
+      setElection(res.data);
+    })().catch(console.error);
   }, [id]);
 
   const handleVote = async () => {
@@ -44,23 +46,24 @@ export default function ElectionDetail() {
       return;
     }
 
-    // Dummy ciphertext placeholder (you’ll replace with TFHE encryption)
-    const ciphertext = `enc_vote_${selected}_${Date.now()}`;
-
     setSubmitting(true);
     setError("");
     setSuccess(false);
 
     try {
+      const keysB64 = await getOrCreateKeys(election.id);
+      const ciphertext = await encryptVote(keysB64, selected);
+
       await axios.post(`http://localhost:8080/elections/${election.id}/ballots`, {
         token,
         candidate_id: selected,
         ciphertext,
       });
+
       setSuccess(true);
     } catch (err: any) {
       console.error(err);
-      setError("Failed to submit your vote. Please try again.");
+      setError("Failed to submit encrypted vote. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +109,7 @@ export default function ElectionDetail() {
                     : "bg-zinc-800 border-zinc-700 hover:border-cyan-400"
                 }`}
               >
-                {c.name}
+                {c.label}
               </div>
             ))}
 
@@ -115,7 +118,7 @@ export default function ElectionDetail() {
               disabled={submitting}
               className="w-full mt-6 py-3 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-semibold shadow-lg shadow-purple-500/30 transition-transform hover:scale-105"
             >
-              {submitting ? "Submitting..." : "Submit Vote"}
+              {submitting ? "Encrypting..." : "Submit Encrypted Vote"}
             </button>
 
             {success && (
