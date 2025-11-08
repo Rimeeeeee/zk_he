@@ -1,5 +1,5 @@
 use bincode::deserialize;
-use homomorphic::{HomomorphicEncryption, tfhe::TfheU32};
+use homomorphic::{HomomorphicEncryption, tfhe_uint::TfheU32};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use tfhe::FheUint32;

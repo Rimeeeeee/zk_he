@@ -1,5 +1,5 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use homomorphic::{HomomorphicEncryption, tfhe::TfheU32};
+use homomorphic::{HomomorphicEncryption, tfhe_uint::TfheU32};
 use tfhe::set_server_key;
 
 fn bench_he(c: &mut Criterion) {

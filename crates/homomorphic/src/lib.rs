@@ -1,7 +1,11 @@
 //! Homomorphic Encryption Trait Definition
 
-pub mod tfhe;
+pub mod tfhe_bool;
 pub mod tfhe_string;
+pub mod tfhe_uint;
+
+pub use tfhe::prelude::*;
+pub use tfhe::{ClientKey, ConfigBuilder, ServerKey, generate_keys};
 
 use thiserror::Error;
 

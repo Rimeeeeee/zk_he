@@ -1,5 +1,5 @@
 use crate::{HomomorphicEncryption, SymmetricCipher, Transcipher, TranscipherError};
-use homomorphic::tfhe::TfheU32;
+use homomorphic::tfhe_uint::TfheU32;
 use symmetric::chacha::ChaCha20Cipher;
 use tfhe::FheUint32;
 

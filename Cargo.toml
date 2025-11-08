@@ -4,7 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["crates/*", "examples/*", "web_client/server"]
+members = [
+    "crates/*",
+    "examples/*",
+    "web_client/client/key",
+    "web_client/server",
+]
 resolver = "2"
 
 
