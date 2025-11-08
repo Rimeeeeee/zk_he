@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { initWasm, getOrCreateKeys, encryptVote } from "../utils/wasmKeys";
+import { initWasm, encryptVote } from "../utils/wasmKeys";
 
 interface Candidate {
   id: number;
@@ -46,12 +46,17 @@ export default function ElectionDetail() {
       return;
     }
 
+    const keysB64 = localStorage.getItem(`keys_${election.id}`);
+    if (!keysB64) {
+      alert("Encryption keys not found for this election. Please contact the organizer.");
+      return;
+    }
+
     setSubmitting(true);
     setError("");
     setSuccess(false);
 
     try {
-      const keysB64 = await getOrCreateKeys(election.id);
       const ciphertext = await encryptVote(keysB64, selected);
 
       await axios.post(`http://localhost:8080/elections/${election.id}/ballots`, {
@@ -88,6 +93,7 @@ export default function ElectionDetail() {
         <h1 className="text-3xl font-bold text-center mb-4 bg-clip-text text-transparent bg-linear-to-r from-cyan-400 to-purple-500">
           {election.name}
         </h1>
+
         <p className="text-gray-400 text-center mb-6 text-sm">
           {new Date(election.start_time * 1000).toLocaleString()} →{" "}
           {new Date(election.end_time * 1000).toLocaleString()}

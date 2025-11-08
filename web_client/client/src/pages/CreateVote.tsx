@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { initWasm, getOrCreateKeys } from "../utils/wasmKeys";
 
 interface Candidate {
   id: number;
@@ -36,49 +37,52 @@ export default function CreateVote() {
   };
 
   const handleCreate = async () => {
-    if (!title.trim() || candidates.some((c) => !c.name.trim())) {
-      alert("Please fill in all required fields");
-      return;
-    }
+  if (!title.trim() || candidates.some((c) => !c.name.trim())) {
+    alert("Please fill in all required fields");
+    return;
+  }
+  if (!endTime) {
+    alert("Please set an end time for the election");
+    return;
+  }
 
-    if (!endTime) {
-      alert("Please set an end time for the election");
-      return;
-    }
+  const startTimestamp = startTime
+    ? Math.floor(new Date(startTime).getTime() / 1000)
+    : Math.floor(Date.now() / 1000);
+  const endTimestamp = Math.floor(new Date(endTime).getTime() / 1000);
 
-    const startTimestamp = startTime
-      ? Math.floor(new Date(startTime).getTime() / 1000)
-      : Math.floor(Date.now() / 1000);
-    const endTimestamp = Math.floor(new Date(endTime).getTime() / 1000);
+  if (endTimestamp <= startTimestamp) {
+    alert("End time must be after the start time.");
+    return;
+  }
 
-    if (endTimestamp <= startTimestamp) {
-      alert("End time must be after the start time.");
-      return;
-    }
+  setLoading(true);
+  setSuccess(false);
+  setError("");
 
-    setLoading(true);
-    setSuccess(false);
-    setError("");
+  try {
+    const res = await axios.post("http://localhost:8080/admin/elections", {
+      name: title,
+      start_time: startTimestamp,
+      end_time: endTimestamp,
+      candidates: candidates.map((c, i) => ({ id: i + 1, name: c.name })),
+    });
 
-    try {
-      const res = await axios.post("http://localhost:8080/admin/elections", {
-        name: title,
-        start_time: startTimestamp,
-        end_time: endTimestamp,
-        candidates: candidates.map((c, i) => ({ id: i + 1, name: c.name })),
-      });
+    const id = res.data.election_id;
 
-      const id = res.data.election_id;
-      setSuccess(true);
+    // 🔐 Initialize WASM + generate & store keys
+    await initWasm();
+    await getOrCreateKeys(id); // generates and uploads server key automatically
 
-      setTimeout(() => navigate(`/election/${id}`), 1500);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to create election. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    setSuccess(true);
+    setTimeout(() => navigate(`/election/${id}`), 1500);
+  } catch (err) {
+    console.error(err);
+    setError("Failed to create election. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-linear-to-b from-zinc-900 to-black text-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
