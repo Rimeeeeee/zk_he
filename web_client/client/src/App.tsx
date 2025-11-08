@@ -3,6 +3,8 @@ import AppLayout from "./components/Layout";
 import Home from "./pages/Home";
 import CreateVote from "./pages/CreateVote";
 import GetToken from "./pages/GetToken";
+import AllVotes from "./pages/AllVotes";
+import ElectionDetail from "./pages/ElectionDetails";
 
 export default function App() {
   return (
@@ -35,9 +37,15 @@ export default function App() {
         path="/elections"
         element={
           <AppLayout>
-            <div className="flex items-center justify-center min-h-[70vh] text-gray-400 text-xl">
-              Coming soon: All Elections
-            </div>
+            <AllVotes />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/election/:id"
+        element={
+          <AppLayout>
+            <ElectionDetail />
           </AppLayout>
         }
       />

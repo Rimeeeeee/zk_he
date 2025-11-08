@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 interface Candidate {
   id: number;
@@ -11,11 +12,14 @@ export default function CreateVote() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([
     { id: 1, name: "" },
   ]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
   const addCandidate = () => {
     setCandidates((prev) => [...prev, { id: prev.length + 1, name: "" }]);
@@ -37,22 +41,43 @@ export default function CreateVote() {
       return;
     }
 
+    if (!endTime) {
+      alert("Please set an end time for the election");
+      return;
+    }
+
+    const startTimestamp = startTime
+      ? Math.floor(new Date(startTime).getTime() / 1000)
+      : Math.floor(Date.now() / 1000);
+    const endTimestamp = Math.floor(new Date(endTime).getTime() / 1000);
+
+    if (endTimestamp <= startTimestamp) {
+      alert("End time must be after the start time.");
+      return;
+    }
+
     setLoading(true);
     setSuccess(false);
+    setError("");
 
-    // dummy API simulation
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const res = await axios.post("http://localhost:8080/admin/elections", {
+        name: title,
+        start_time: startTimestamp,
+        end_time: endTimestamp,
+        candidates: candidates.map((c, i) => ({ id: i + 1, name: c.name })),
+      });
 
-    const fakeElectionId = Math.floor(Math.random() * 10000);
-    localStorage.setItem(
-      `election_${fakeElectionId}`,
-      JSON.stringify({ title, description, candidates })
-    );
+      const id = res.data.election_id;
+      setSuccess(true);
 
-    setLoading(false);
-    setSuccess(true);
-
-    setTimeout(() => navigate(`/election/${fakeElectionId}`), 1500);
+      setTimeout(() => navigate(`/election/${id}`), 1500);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to create election. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -96,6 +121,32 @@ export default function CreateVote() {
               placeholder="Optional description"
               className="w-full bg-zinc-800 text-gray-100 px-4 py-2 rounded-lg border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 h-24 resize-none"
             />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-400 mb-1 text-sm">
+                Start Time
+              </label>
+              <input
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full bg-zinc-800 text-gray-100 px-4 py-2 rounded-lg border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-400 mb-1 text-sm">
+                End Time
+              </label>
+              <input
+                type="datetime-local"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full bg-zinc-800 text-gray-100 px-4 py-2 rounded-lg border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
           </div>
 
           <div>
@@ -152,6 +203,16 @@ export default function CreateVote() {
               className="text-green-400 text-center font-medium pt-4"
             >
               ✅ Vote created successfully! Redirecting...
+            </motion.div>
+          )}
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-400 text-center font-medium pt-4"
+            >
+              {error}
             </motion.div>
           )}
         </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 interface TokenRecord {
   voterId: string;
@@ -11,23 +12,31 @@ export default function GetToken() {
   const [voterId, setVoterId] = useState("");
   const [record, setRecord] = useState<TokenRecord | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleGenerate = async () => {
     if (!voterId.trim()) return alert("Please enter a valid Voter ID");
     setLoading(true);
+    setError("");
     setRecord(null);
 
-    // Dummy local “DB” simulation
-    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      // Call backend API
+      const res = await axios.post("http://localhost:8080/auth/token");
+      const token = res.data.token;
 
-    const existing = localStorage.getItem(`token_${voterId}`);
-    const token = existing ?? `tok_${btoa(voterId).slice(0, 10)}`;
+      // Save to localStorage
+      localStorage.setItem("voter_id", voterId);
+      localStorage.setItem("voter_token", token);
 
-    if (!existing) localStorage.setItem(`token_${voterId}`, token);
-
-    setRecord({ voterId, token });
-    setLoading(false);
+      setRecord({ voterId, token });
+    } catch (err) {
+      console.error(err);
+      setError("Failed to generate token. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -64,9 +73,13 @@ export default function GetToken() {
             disabled={loading}
             className="px-6 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold shadow-lg shadow-cyan-500/30 transition-transform hover:scale-105"
           >
-            {loading ? "Processing..." : "Generate / Fetch Token"}
+            {loading ? "Processing..." : "Generate Token"}
           </button>
         </div>
+
+        {error && (
+          <p className="text-red-400 text-sm font-medium pt-2">{error}</p>
+        )}
 
         {record && (
           <motion.div
@@ -79,10 +92,12 @@ export default function GetToken() {
             </div>
             <p className="text-gray-500 text-sm">
               Linked to Voter ID:{" "}
-              <span className="text-purple-400 font-medium">{record.voterId}</span>
+              <span className="text-purple-400 font-medium">
+                {record.voterId}
+              </span>
             </p>
             <button
-              onClick={() => navigate("/election/1")}
+              onClick={() => navigate("/elections")}
               className="px-6 py-2 bg-purple-700 hover:bg-purple-600 rounded-lg text-white shadow-md transition-transform hover:scale-105"
             >
               Proceed to Vote →

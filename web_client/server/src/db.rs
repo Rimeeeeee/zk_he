@@ -25,4 +25,19 @@ impl Database {
     pub fn exists(&self, key: &str) -> bool {
         self.db.get(key.as_bytes()).unwrap().is_some()
     }
+
+    pub fn scan_prefix(&self, prefix: &str) -> Vec<(String, Vec<u8>)> {
+        self.db
+            .iterator(rocksdb::IteratorMode::Start)
+            .filter_map(|item| {
+                let (key, val) = item.ok()?;
+                let key_str = String::from_utf8(key.to_vec()).ok()?;
+                if key_str.starts_with(prefix) {
+                    Some((key_str, val.to_vec()))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }

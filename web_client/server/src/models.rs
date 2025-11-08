@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -11,6 +11,7 @@ pub struct TokenRecord {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Candidate {
     pub id: u32,
+    #[serde(rename = "name")]
     pub label: String,
 }
 
