@@ -26,6 +26,13 @@ pub struct Election {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ElectionKeys {
+    pub id: String,
+    pub server: String,
+     pub timestamp: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Ballot {
     pub ballot_id: String,
     pub election_id: String,

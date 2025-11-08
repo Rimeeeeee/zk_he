@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { initWasm, getOrCreateKeys } from "../utils/wasmKeys";
 
 interface Candidate {
   id: number;
@@ -15,12 +14,13 @@ export default function CreateVote() {
   const [description, setDescription] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [candidates, setCandidates] = useState<Candidate[]>([
-    { id: 1, name: "" },
-  ]);
+  const [candidates, setCandidates] = useState<Candidate[]>([{ id: 1, name: "" }]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [electionId, setElectionId] = useState<string | null>(null);
+  const [serverKey, setServerKey] = useState<string | null>(null);
+  const [clientKey, setClientKey] = useState<string | null>(null);
 
   const addCandidate = () => {
     setCandidates((prev) => [...prev, { id: prev.length + 1, name: "" }]);
@@ -37,55 +37,56 @@ export default function CreateVote() {
   };
 
   const handleCreate = async () => {
-  if (!title.trim() || candidates.some((c) => !c.name.trim())) {
-    alert("Please fill in all required fields");
-    return;
-  }
-  if (!endTime) {
-    alert("Please set an end time for the election");
-    return;
-  }
+    if (!title.trim() || candidates.some((c) => !c.name.trim())) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    if (!endTime) {
+      alert("Please set an end time for the election");
+      return;
+    }
 
-  const startTimestamp = startTime
-    ? Math.floor(new Date(startTime).getTime() / 1000)
-    : Math.floor(Date.now() / 1000);
-  const endTimestamp = Math.floor(new Date(endTime).getTime() / 1000);
+    const startTimestamp = startTime
+      ? Math.floor(new Date(startTime).getTime() / 1000)
+      : Math.floor(Date.now() / 1000);
+    const endTimestamp = Math.floor(new Date(endTime).getTime() / 1000);
 
-  if (endTimestamp <= startTimestamp) {
-    alert("End time must be after the start time.");
-    return;
-  }
+    if (endTimestamp <= startTimestamp) {
+      alert("End time must be after the start time.");
+      return;
+    }
 
-  setLoading(true);
-  setSuccess(false);
-  setError("");
+    setLoading(true);
+    setSuccess(false);
+    setError("");
+    setElectionId(null);
+    setServerKey(null);
+    setClientKey(null);
 
-  try {
-    const res = await axios.post("http://localhost:8080/admin/elections", {
-      name: title,
-      start_time: startTimestamp,
-      end_time: endTimestamp,
-      candidates: candidates.map((c, i) => ({ id: i + 1, name: c.name })),
-    });
+    try {
+      const res = await axios.post("http://localhost:8080/admin/elections", {
+        name: title,
+        start_time: startTimestamp,
+        end_time: endTimestamp,
+        candidates: candidates.map((c, i) => ({ id: i + 1, name: c.name })),
+      });
 
-    const id = res.data.election_id;
+      const { election_id, server_key, client_key } = res.data;
 
-    // 🔐 Initialize WASM + generate & store keys
-    await initWasm();
-    await getOrCreateKeys(id); // generates and uploads server key automatically
-
-    setSuccess(true);
-    setTimeout(() => navigate(`/election/${id}`), 1500);
-  } catch (err) {
-    console.error(err);
-    setError("Failed to create election. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+      setElectionId(election_id);
+      setServerKey(server_key);
+      setClientKey(client_key);
+      setSuccess(true);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to create election. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-zinc-900 to-black text-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-zinc-900 to-black text-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0">
         <div className="absolute top-32 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-32 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
@@ -97,15 +98,13 @@ export default function CreateVote() {
         transition={{ duration: 0.8 }}
         className="z-10 w-full max-w-2xl bg-zinc-900/80 border border-zinc-800 rounded-2xl shadow-lg p-8 backdrop-blur-md"
       >
-        <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-linear-to-r from-cyan-400 to-purple-500">
+        <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
           🗳️ Create New Vote
         </h1>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-gray-400 mb-1 text-sm">
-              Election Title
-            </label>
+            <label className="block text-gray-400 mb-1 text-sm">Election Title</label>
             <input
               type="text"
               value={title}
@@ -116,9 +115,7 @@ export default function CreateVote() {
           </div>
 
           <div>
-            <label className="block text-gray-400 mb-1 text-sm">
-              Description
-            </label>
+            <label className="block text-gray-400 mb-1 text-sm">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -129,9 +126,7 @@ export default function CreateVote() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-gray-400 mb-1 text-sm">
-                Start Time
-              </label>
+              <label className="block text-gray-400 mb-1 text-sm">Start Time</label>
               <input
                 type="datetime-local"
                 value={startTime}
@@ -139,11 +134,8 @@ export default function CreateVote() {
                 className="w-full bg-zinc-800 text-gray-100 px-4 py-2 rounded-lg border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>
-
             <div>
-              <label className="block text-gray-400 mb-1 text-sm">
-                End Time
-              </label>
+              <label className="block text-gray-400 mb-1 text-sm">End Time</label>
               <input
                 type="datetime-local"
                 value={endTime}
@@ -154,9 +146,7 @@ export default function CreateVote() {
           </div>
 
           <div>
-            <label className="block text-gray-400 mb-2 text-sm">
-              Candidates
-            </label>
+            <label className="block text-gray-400 mb-2 text-sm">Candidates</label>
             <div className="space-y-3">
               {candidates.map((c) => (
                 <div
@@ -196,17 +186,48 @@ export default function CreateVote() {
               disabled={loading}
               className="w-full py-3 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-semibold shadow-lg shadow-purple-500/30 transition-transform hover:scale-105"
             >
-              {loading ? "Creating..." : "Create Vote"}
+              {loading ? "Creating..." : "Create Election"}
             </button>
           </div>
 
-          {success && (
+          {success && electionId && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-green-400 text-center font-medium pt-4"
+              className="text-center pt-6 space-y-3"
             >
-              ✅ Vote created successfully! Redirecting...
+              <p className="text-green-400 font-medium">
+                ✅ Election created successfully!
+              </p>
+              <p className="text-gray-300 text-sm">
+                Election ID:{" "}
+                <span className="text-cyan-400 font-mono">{electionId}</span>
+              </p>
+
+              {serverKey && (
+                <div className="text-left bg-zinc-800 p-3 rounded-lg border border-zinc-700 overflow-x-auto text-xs">
+                  <p className="text-cyan-400 mb-1 font-medium">Server Key:</p>
+                  <pre className="text-gray-300 whitespace-pre-wrap break-words">
+                    {serverKey}
+                  </pre>
+                </div>
+              )}
+
+              {clientKey && (
+                <div className="text-left bg-zinc-800 p-3 rounded-lg border border-zinc-700 overflow-x-auto text-xs">
+                  <p className="text-purple-400 mb-1 font-medium">Client Key:</p>
+                  <pre className="text-gray-300 whitespace-pre-wrap break-words">
+                    {clientKey}
+                  </pre>
+                </div>
+              )}
+
+              <button
+                onClick={() => navigate(`/election/${electionId}`)}
+                className="block mx-auto mt-4 px-6 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg font-medium shadow"
+              >
+                ➡️ Go to Election Page
+              </button>
             </motion.div>
           )}
 

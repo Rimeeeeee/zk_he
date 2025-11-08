@@ -1,7 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{
-    App, HttpServer,
-    web::{self, service},
+    App, HttpServer, middleware::Logger,
+    web::{self},
 };
 
 mod db;
@@ -18,13 +18,14 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(Logger::default()) // ✅ correct way to enable route logging
             .wrap(
                 Cors::default()
                     .allow_any_origin()
                     .allow_any_method()
                     .allow_any_header(),
             )
-            .app_data(web::Data::new(db.clone())) // now web::Data<Database>
+            .app_data(web::Data::new(db.clone()))
             .service(auth::routes())
             .service(election::routes())
             .service(ballot::routes())

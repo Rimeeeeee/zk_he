@@ -1,23 +1,48 @@
 use crate::db::Database;
-use actix_web::{HttpResponse, Scope, post, web};
+use actix_web::{post, web, HttpResponse, Scope};
 use serde_json::json;
+use tfhe::{ConfigBuilder, generate_keys};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-#[post("/elections/{id}/server-key")]
-async fn store_server_key(
+#[post("/{id}/keys")]
+async fn generate_election_keys(
     db: web::Data<Database>,
     path: web::Path<String>,
-    body: web::Json<serde_json::Value>,
 ) -> HttpResponse {
-    let id = path.into_inner();
-    let key_b64 = body["server_key"].as_str().unwrap_or("");
-    if key_b64.is_empty() {
-        return HttpResponse::BadRequest().json(json!({"error": "missing server_key"}));
+    let election_id = path.into_inner();
+
+    let key_path = format!("keys:{}", election_id);
+    if db.exists(&key_path) {
+        return HttpResponse::Conflict().json(json!({ "error": "Keys already exist" }));
     }
 
-    db.put(&format!("server_keys:{}", id), key_b64.as_bytes());
-    HttpResponse::Ok().json(json!({"status": "stored"}))
+    let config = ConfigBuilder::default().build();
+    let (client_key, server_key) = generate_keys(config);
+
+    let client_bytes = bincode::serialize(&client_key).unwrap();
+    let server_bytes = bincode::serialize(&server_key).unwrap();
+    let client_b64 = base64::encode(client_bytes);
+    let server_b64 = base64::encode(server_bytes);
+
+    let record = json!({
+        "client_key": client_b64,
+        "server_key": server_b64,
+        "created_at": SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    });
+
+    db.put(&key_path, &serde_json::to_vec(&record).unwrap());
+
+    HttpResponse::Ok().json(json!({
+        "election_id": election_id,
+        "server_key": server_b64
+    }))
 }
 
 pub fn routes() -> Scope {
-    web::scope("").service(store_server_key)
+    // ✅ Important: prefix must match what frontend calls
+    web::scope("/elections")
+        .service(generate_election_keys)
 }
