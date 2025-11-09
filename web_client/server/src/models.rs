@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tfhe::{FheUint, FheUint8Id};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -32,12 +33,11 @@ pub struct ElectionKeys {
      pub timestamp: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Ballot {
     pub ballot_id: String,
     pub election_id: String,
-    pub candidate_id: u32,
-    pub ciphertext: String,
+    pub encrypted_vector:Vec<FheUint<FheUint8Id>>,
     pub timestamp: u64,
     pub token_hash: String,
 }

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { initWasm, encryptVote } from "../utils/wasmKeys";
 
 interface Candidate {
   id: number;
@@ -31,7 +30,6 @@ export default function ElectionDetail() {
   useEffect(() => {
     (async () => {
       try {
-        await initWasm();
         const res = await axios.get(`http://localhost:8080/elections/${id}`);
         setElection(res.data);
         console.log(res.data)
@@ -45,46 +43,40 @@ export default function ElectionDetail() {
   }, [id]);
 
   // ✅ Handle encrypted vote submission
-  const handleVote = async () => {
-    if (!selected || !election) {
-      alert("Please select a candidate first.");
-      return;
-    }
+ const handleVote = async () => {
+  if (!selected || !election) {
+    alert("Please select a candidate first.");
+    return;
+  }
 
-    const token = localStorage.getItem("voter_token");
-    if (!token) {
-      alert("You must get a voting token first!");
-      return;
-    }
+  const token = localStorage.getItem("voter_token");
+  if (!token) {
+    alert("You must get a voting token first!");
+    return;
+  }
 
-    const keysB64 = localStorage.getItem(`keys_${election.id}`);
-    if (!keysB64) {
-      alert("Encryption keys not found for this election. Please contact the organizer.");
-      return;
-    }
+  setSubmitting(true);
+  setError("");
+  setSuccess(false);
 
-    setSubmitting(true);
-    setError("");
-    setSuccess(false);
+  try {
+    // ✅ No encryption on the client
+    // ✅ Send plain candidate_id + token only
+    await axios.post(`http://localhost:8080/elections/${election.id}/ballots`, {
+      token,
+      candidate_id: selected,
+    });
 
-    try {
-      const ciphertext = await encryptVote(keysB64, selected);
+    setSuccess(true);
+    setSelected(null);
+  } catch (err) {
+    console.error("Error submitting vote:", err);
+    setError("Failed to submit vote. Please try again.");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
-      await axios.post(`http://localhost:8080/elections/${election.id}/ballots`, {
-        token,
-        candidate_id: selected,
-        ciphertext,
-      });
-
-      setSuccess(true);
-      setSelected(null);
-    } catch (err) {
-      console.error("Error submitting vote:", err);
-      setError("Failed to submit encrypted vote. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // ✅ Loading and error UI
   if (loading) {
