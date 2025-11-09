@@ -29,12 +29,12 @@ This platform enables users to:
 ### How to run:
 On terminal 1:
 ``` bash
-ls server
+cd server
 cargo run
 ```
 On terminal 2:
 ``` bash
-ls client
+cd client
 npm run dev
 ```
 ### Conclusion
