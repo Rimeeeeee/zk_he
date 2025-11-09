@@ -29,7 +29,6 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(db.clone()))
             .service(auth::routes())
             .service(election::routes())
-            .service(ballot::routes())
             .service(key::routes())
     })
     .bind(("127.0.0.1", 8080))?
