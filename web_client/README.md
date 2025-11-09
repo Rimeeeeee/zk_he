@@ -1,3 +1,4 @@
+<img width="1874" height="959" alt="Screenshot 2025-10-24 194111" src="https://github.com/user-attachments/assets/fe92bce9-6c8b-43be-8b20-311a85515cc8" />
 ## 🗳️ Private End-to-End Encrypted Voting System (FHE-Powered)
 
 A secure, trustless voting platform built using **Fully Homomorphic Encryption (FHE)**.
@@ -23,8 +24,6 @@ This platform enables users to:
 * Have the server tally results without decrypting individual votes
 
 **No one — not even the server — can see which candidate a voter selected.**
-### System Architecture
-![Voting Architecture](web_client\client\architecture.png)
 
 ### How to run:
 On terminal 1:
