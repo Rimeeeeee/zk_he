@@ -86,7 +86,7 @@ export default function CreateVote() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-900 to-black text-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-linear-to-b from-zinc-900 to-black text-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0">
         <div className="absolute top-32 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-32 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
@@ -98,7 +98,7 @@ export default function CreateVote() {
         transition={{ duration: 0.8 }}
         className="z-10 w-full max-w-2xl bg-zinc-900/80 border border-zinc-800 rounded-2xl shadow-lg p-8 backdrop-blur-md"
       >
-        <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
+        <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-linear-to-r from-cyan-400 to-purple-500">
           🗳️ Create New Vote
         </h1>
 
@@ -207,7 +207,7 @@ export default function CreateVote() {
               {serverKey && (
                 <div className="text-left bg-zinc-800 p-3 rounded-lg border border-zinc-700 overflow-x-auto text-xs">
                   <p className="text-cyan-400 mb-1 font-medium">Server Key:</p>
-                  <pre className="text-gray-300 whitespace-pre-wrap break-words">
+                  <pre className="text-gray-300 whitespace-pre-wrap wrap-break-word">
                     {serverKey}
                   </pre>
                 </div>
@@ -216,7 +216,7 @@ export default function CreateVote() {
               {clientKey && (
                 <div className="text-left bg-zinc-800 p-3 rounded-lg border border-zinc-700 overflow-x-auto text-xs">
                   <p className="text-purple-400 mb-1 font-medium">Client Key:</p>
-                  <pre className="text-gray-300 whitespace-pre-wrap break-words">
+                  <pre className="text-gray-300 whitespace-pre-wrap wrap-break-word">
                     {clientKey}
                   </pre>
                 </div>

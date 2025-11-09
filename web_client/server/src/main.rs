@@ -10,7 +10,7 @@ mod models;
 mod routes;
 use db::Database;
 
-use crate::routes::{auth, ballot, election, key};
+use crate::routes::{auth, election, key};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
