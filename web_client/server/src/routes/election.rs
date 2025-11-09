@@ -1,7 +1,10 @@
 use actix_web::{HttpResponse, Scope, get, post, web};
 use serde_json::json;
+use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use tfhe::{ConfigBuilder, generate_keys};
-use std::{fs, time::{SystemTime, UNIX_EPOCH}};
 use uuid::Uuid;
 
 use crate::{
@@ -11,7 +14,6 @@ use crate::{
 use std::path::Path;
 
 // Ensure directory exists
-
 
 // #[post("/admin/elections")]
 // async fn create_election(
@@ -86,24 +88,24 @@ async fn create_election(
     let config = ConfigBuilder::default().build();
     let (client_key, server_key) = generate_keys(config);
     let client_bytes = bincode::serialize(&client_key).unwrap();
-let server_bytes = bincode::serialize(&server_key).unwrap();
- let key_dir = Path::new("keys");
-if !key_dir.exists() {
-    fs::create_dir_all(key_dir).expect("Failed to create keys directory");
-}
-let client_path = format!("keys/{}_client.key", id);
-let server_path = format!("keys/{}_server.key", id);
+    let server_bytes = bincode::serialize(&server_key).unwrap();
+    let key_dir = Path::new("keys");
+    if !key_dir.exists() {
+        fs::create_dir_all(key_dir).expect("Failed to create keys directory");
+    }
+    let client_path = format!("keys/{}_client.key", id);
+    let server_path = format!("keys/{}_server.key", id);
 
-fs::write(&client_path, &client_bytes).expect("Failed to write client key");
-fs::write(&server_path, &server_bytes).expect("Failed to write server key");
+    fs::write(&client_path, &client_bytes).expect("Failed to write client key");
+    fs::write(&server_path, &server_bytes).expect("Failed to write server key");
 
-    let record = ElectionKeys{
-        id:id.clone(),
+    let record = ElectionKeys {
+        id: id.clone(),
         server: server_path.clone(),
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs()
+            .as_secs(),
     };
 
     db.put(&key_path, &serde_json::to_vec(&record).unwrap());

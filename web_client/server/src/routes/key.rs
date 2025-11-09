@@ -1,14 +1,12 @@
+#[allow(deprecated)]
 use crate::db::Database;
-use actix_web::{post, web, HttpResponse, Scope};
+use actix_web::{HttpResponse, Scope, post, web};
 use serde_json::json;
-use tfhe::{ConfigBuilder, generate_keys};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tfhe::{ConfigBuilder, generate_keys};
 
 #[post("/{id}/keys")]
-async fn generate_election_keys(
-    db: web::Data<Database>,
-    path: web::Path<String>,
-) -> HttpResponse {
+async fn generate_election_keys(db: web::Data<Database>, path: web::Path<String>) -> HttpResponse {
     let election_id = path.into_inner();
 
     let key_path = format!("keys:{}", election_id);
@@ -43,6 +41,5 @@ async fn generate_election_keys(
 
 pub fn routes() -> Scope {
     // ✅ Important: prefix must match what frontend calls
-    web::scope("/elections")
-        .service(generate_election_keys)
+    web::scope("/elections").service(generate_election_keys)
 }

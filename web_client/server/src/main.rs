@@ -1,6 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{
-    App, HttpServer, middleware::Logger,
+    App, HttpServer,
+    middleware::Logger,
     web::{self},
 };
 
@@ -18,7 +19,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .wrap(Logger::default()) // ✅ correct way to enable route logging
+            .wrap(Logger::default())
             .wrap(
                 Cors::default()
                     .allow_any_origin()
