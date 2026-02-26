@@ -10,6 +10,13 @@ ark-ff.workspace = true
 ark-ec.workspace = true
 ark-bls12-381.workspace = true
 plonky2.workspace = true
+ark-relations = "0.5.1"
+ark-r1cs-std = "0.5.0"
+ark-groth16 = "0.5.0"
+ark-snark = "0.5.1"
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
+ark-serialize.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

@@ -2,6 +2,7 @@
 
 ///Plonk Module
 pub mod plonk;
+pub mod zk;
 
 /// A trait for Zero-Knowledge Proof systems.
 pub trait ZeroKnowledge {
