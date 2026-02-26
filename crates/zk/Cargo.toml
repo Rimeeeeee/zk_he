@@ -16,6 +16,8 @@ ark-groth16 = "0.5.0"
 ark-snark = "0.5.1"
 serde = { version = "1", features = ["derive"] }
 bincode = "1"
+ark-poly = "0.5.0"
+ark-poly-commit = "0.5.0"
 ark-serialize.workspace = true
 
 [dev-dependencies]

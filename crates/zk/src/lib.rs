@@ -1,8 +1,8 @@
 //! Lib of zero-knowledge proof systems.
 
+pub mod groth;
 ///Plonk Module
 pub mod plonk;
-pub mod zk;
 
 /// A trait for Zero-Knowledge Proof systems.
 pub trait ZeroKnowledge {

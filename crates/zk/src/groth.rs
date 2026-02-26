@@ -141,3 +141,61 @@ pub fn verify(keys: &ZkKeys, proof_bytes: &[u8], totals: Vec<u8>) -> bool {
 
     Groth16::<Bls12_381>::verify_with_processed_vk(&pvk, &public_inputs, &proof).unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_for(votes: Vec<Vec<u8>>, totals: Vec<u8>) -> ZkKeys {
+        setup(&votes, &totals)
+    }
+
+    #[test]
+    fn test_valid_voting_proof() {
+        // Votes:
+        // V1: [1,0]
+        // V2: [0,1]
+        // V3: [1,0]
+        let votes = vec![vec![1, 0], vec![0, 1], vec![1, 0]];
+
+        let totals = vec![2, 1];
+
+        let keys = setup_for(votes.clone(), totals.clone());
+
+        let proof = prove(&keys, votes.clone(), totals.clone());
+
+        let verified = verify(&keys, &proof, totals.clone());
+
+        assert!(verified, "Valid voting proof failed");
+    }
+
+    #[test]
+    fn test_invalid_totals_should_fail_verification() {
+        let votes = vec![vec![1, 0], vec![0, 1], vec![1, 0]];
+
+        let correct_totals = vec![2, 1];
+        let wrong_totals = vec![3, 0];
+
+        let keys = setup_for(votes.clone(), correct_totals.clone());
+
+        let proof = prove(&keys, votes.clone(), correct_totals.clone());
+
+        let verified = verify(&keys, &proof, wrong_totals.clone());
+
+        assert!(!verified, "Verification should fail with wrong totals");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_non_binary_vote_should_fail_proving() {
+        // Invalid vote = 2
+        let votes = vec![vec![2, 0], vec![0, 1]];
+
+        let totals = vec![2, 1];
+
+        let keys = setup_for(votes.clone(), totals.clone());
+
+        // Should panic during proof generation
+        let _proof = prove(&keys, votes.clone(), totals.clone());
+    }
+}

@@ -1,47 +1,117 @@
-use criterion::{Criterion, criterion_group, criterion_main};
-use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-use zk::{
-    ZeroKnowledge,
-    plonk::{FibonacciTerm, Statement, Witness},
-};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use plonky2::field::types::Field;
+use zk::groth;
+use zk::plonk;
 
-const D: usize = 2;
-type C = PoseidonGoldilocksConfig;
-type F = <C as GenericConfig<D>>::F;
+// ----------------------------
+// Sample vote generator (u8)
+// ----------------------------
+fn sample_votes_u8(num_voters: usize, num_candidates: usize) -> (Vec<Vec<u8>>, Vec<u8>) {
+    let mut votes = vec![vec![0u8; num_candidates]; num_voters];
 
-fn bench_fibonacci_proof(c: &mut Criterion) {
-    let params = FibonacciTerm::setup().expect("setup failed");
-
-    let result = fib100_as_field::<F>();
-    let statement = Statement { result };
-    let witness = Witness {};
-
-    c.bench_function("FibonacciTerm proof generation", |b| {
-        b.iter(|| {
-            let _proof = FibonacciTerm::prove(&params, &statement, &witness).expect("prove failed");
-        });
-    });
-
-    c.bench_function("FibonacciTerm proof verification", |b| {
-        let proof = FibonacciTerm::prove(&params, &statement, &witness).expect("prove failed");
-
-        b.iter(|| {
-            let _verified =
-                FibonacciTerm::verify(&params, &statement, &proof).expect("verify failed");
-        });
-    });
-}
-
-fn fib100_as_field<F: plonky2::field::types::Field>() -> F {
-    let mut a = F::ZERO;
-    let mut b = F::ONE;
-    for _ in 0..99 {
-        let c = a + b;
-        a = b;
-        b = c;
+    for i in 0..num_voters {
+        votes[i][i % num_candidates] = 1;
     }
-    b
+
+    let mut totals = vec![0u8; num_candidates];
+    for row in &votes {
+        for (j, v) in row.iter().enumerate() {
+            totals[j] += v;
+        }
+    }
+
+    (votes, totals)
 }
 
-criterion_group!(benches, bench_fibonacci_proof);
+// ----------------------------
+// Groth16 Benchmarks
+// ----------------------------
+fn bench_groth(c: &mut Criterion) {
+    let (votes, totals) = sample_votes_u8(10, 3);
+
+    // Setup
+    c.bench_function("groth_setup_10v_3c", |b| {
+        b.iter(|| {
+            black_box(groth::setup(&votes, &totals));
+        })
+    });
+
+    let keys = groth::setup(&votes, &totals);
+
+    // Prove
+    c.bench_function("groth_prove_10v_3c", |b| {
+        b.iter(|| {
+            black_box(groth::prove(&keys, votes.clone(), totals.clone()));
+        })
+    });
+
+    let proof = groth::prove(&keys, votes.clone(), totals.clone());
+
+    // Verify
+    c.bench_function("groth_verify_10v_3c", |b| {
+        b.iter(|| {
+            black_box(groth::verify(&keys, &proof, totals.clone()));
+        })
+    });
+}
+
+// ----------------------------
+// Plonky2 Benchmarks
+// ----------------------------
+fn bench_plonk(c: &mut Criterion) {
+    let num_voters = 10;
+    let num_candidates = 3;
+
+    let (votes_u8, totals_u8) = sample_votes_u8(num_voters, num_candidates);
+
+    let params = plonk::setup(num_voters, num_candidates);
+
+    // Convert to field format
+    let votes_field: Vec<Vec<_>> = votes_u8
+        .iter()
+        .map(|row| {
+            row.iter()
+                .map(|&v| plonk::F::from_canonical_u64(v as u64))
+                .collect()
+        })
+        .collect();
+
+    let totals_field: Vec<_> = totals_u8
+        .iter()
+        .map(|&v| plonk::F::from_canonical_u64(v as u64))
+        .collect();
+
+    let witness = plonk::Witness {
+        votes: votes_field.clone(),
+    };
+
+    let statement = plonk::Statement {
+        totals: totals_field.clone(),
+    };
+
+    // Setup benchmark (already done once, but we measure it separately)
+    c.bench_function("plonky_setup_10v_3c", |b| {
+        b.iter(|| {
+            black_box(plonk::setup(num_voters, num_candidates));
+        })
+    });
+
+    // Prove
+    c.bench_function("plonky_prove_10v_3c", |b| {
+        b.iter(|| {
+            black_box(plonk::prove(&params, &witness));
+        })
+    });
+
+    let proof = plonk::prove(&params, &witness);
+
+    // Verify
+    c.bench_function("plonky_verify_10v_3c", |b| {
+        b.iter(|| {
+            black_box(plonk::verify(&params, &statement, &proof));
+        })
+    });
+}
+
+criterion_group!(benches, bench_groth, bench_plonk);
 criterion_main!(benches);

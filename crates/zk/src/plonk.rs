@@ -1,100 +1,120 @@
-use plonky2::field::types::Field;
+use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::CircuitConfig;
+use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::plonk::proof::ProofWithPublicInputs;
 
-use crate::ZeroKnowledge;
-use crate::ZkError;
-
-/// A struct representing the Fibonacci term proving system.
-pub struct FibonacciTerm {
-    pub term: u32,
-}
-
-// Define parameters for this circuit
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
-type F = <C as GenericConfig<D>>::F;
+pub type F = <C as GenericConfig<D>>::F;
 
-/// Parameters, Statement, Witness, and Proof structures
+/// ==========================
+/// Parameters
+/// ==========================
 pub struct Parameters {
-    pub circuit_data: plonky2::plonk::circuit_data::CircuitData<F, C, D>,
+    pub circuit_data: CircuitData<F, C, D>,
+    pub vote_targets: Vec<Vec<Target>>,
 }
 
+/// ==========================
+/// Statement
+/// ==========================
 pub struct Statement {
-    pub result: F,
+    pub totals: Vec<F>,
 }
 
-pub struct Witness {}
+/// ==========================
+/// Witness
+/// ==========================
+pub struct Witness {
+    pub votes: Vec<Vec<F>>,
+}
 
+/// ==========================
+/// Proof
+/// ==========================
 pub struct Proof {
-    pub proof: plonky2::plonk::proof::ProofWithPublicInputs<F, C, D>,
+    pub proof: ProofWithPublicInputs<F, C, D>,
 }
 
-impl ZeroKnowledge for FibonacciTerm {
-    type Parameters = Parameters;
-    type Statement = Statement;
-    type Witness = Witness;
-    type Proof = Proof;
+/// ==========================
+/// Setup
+/// ==========================
+pub fn setup(num_voters: usize, num_candidates: usize) -> Parameters {
+    let config = CircuitConfig::standard_recursion_config();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    fn setup() -> Result<Self::Parameters, ZkError> {
-        let config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
+    let mut vote_targets = vec![];
 
-        // Build a circuit for the statement: "I know the 100th term of the Fibonacci sequence, starting from 0 and 1".
-        let initial_a = builder.constant(F::ZERO);
-        let initial_b = builder.constant(F::ONE);
+    for _ in 0..num_voters {
+        let mut row = vec![];
 
-        let mut prev_target = initial_a;
-        let mut cur_target = initial_b;
-        for _ in 0..99 {
-            let temp = builder.add(prev_target, cur_target);
-            prev_target = cur_target;
-            cur_target = temp;
+        for _ in 0..num_candidates {
+            let v = builder.add_virtual_target();
+
+            // Enforce binary constraint
+            let one = builder.one();
+            let v_minus_one = builder.sub(v, one);
+            let prod = builder.mul(v, v_minus_one);
+            builder.assert_zero(prod);
+
+            row.push(v);
         }
 
-        builder.register_public_input(cur_target);
-
-        let circuit_data = builder.build::<C>();
-
-        Ok(Parameters { circuit_data })
+        vote_targets.push(row);
     }
 
-    fn prove(
-        params: &Self::Parameters,
-        statement: &Self::Statement,
-        _witness: &Self::Witness,
-    ) -> Result<Self::Proof, ZkError> {
-        let mut pw = PartialWitness::new();
-        let _ = pw.set_target(
-            params.circuit_data.prover_only.public_inputs[0],
-            statement.result,
-        );
-
-        // Use the returned Result properly
-        let proof_data = params
-            .circuit_data
-            .prove(pw)
-            .map_err(|_| ZkError::ProveError)?;
-
-        Ok(Proof { proof: proof_data })
-    }
-
-    fn verify(
-        params: &Self::Parameters,
-        statement: &Self::Statement,
-        proof: &Self::Proof,
-    ) -> Result<bool, ZkError> {
-        let res = params.circuit_data.verify(proof.proof.clone());
-        if res.is_err() {
-            return Ok(false);
+    // Sum constraints
+    for j in 0..num_candidates {
+        let mut sum = builder.zero();
+        for i in 0..num_voters {
+            sum = builder.add(sum, vote_targets[i][j]);
         }
-
-        // Optional: check that the public input matches statement
-        let public_input = proof.proof.public_inputs[0];
-        Ok(public_input == statement.result)
+        builder.register_public_input(sum);
     }
+
+    let circuit_data = builder.build::<C>();
+
+    Parameters {
+        circuit_data,
+        vote_targets,
+    }
+}
+
+/// ==========================
+/// Prove
+/// ==========================
+pub fn prove(params: &Parameters, witness: &Witness) -> Proof {
+    let mut pw = PartialWitness::new();
+
+    for i in 0..witness.votes.len() {
+        for j in 0..witness.votes[i].len() {
+            let _ = pw.set_target(params.vote_targets[i][j], witness.votes[i][j]);
+        }
+    }
+
+    let proof = params.circuit_data.prove(pw).unwrap();
+
+    Proof { proof }
+}
+
+/// ==========================
+/// Verify
+/// ==========================
+pub fn verify(params: &Parameters, statement: &Statement, proof: &Proof) -> bool {
+    if params.circuit_data.verify(proof.proof.clone()).is_err() {
+        return false;
+    }
+
+    // Ensure public inputs match expected totals
+    for (i, expected) in statement.totals.iter().enumerate() {
+        if proof.proof.public_inputs[i] != *expected {
+            return false;
+        }
+    }
+
+    true
 }
 
 #[cfg(test)]
@@ -102,34 +122,85 @@ mod tests {
     use super::*;
     use plonky2::field::types::Field;
 
-    // Helper function to compute the 100th Fibonacci number as a field element
-    fn fib100_as_field<F: Field>() -> F {
-        let mut a = F::ZERO;
-        let mut b = F::ONE;
-        for _ in 0..99 {
-            let c = a + b;
-            a = b;
-            b = c;
-        }
-        b
+    fn to_field_matrix(matrix: Vec<Vec<u64>>) -> Vec<Vec<F>> {
+        matrix
+            .into_iter()
+            .map(|row| row.into_iter().map(F::from_canonical_u64).collect())
+            .collect()
+    }
+
+    fn to_field_vec(vec: Vec<u64>) -> Vec<F> {
+        vec.into_iter().map(F::from_canonical_u64).collect()
     }
 
     #[test]
-    fn test_fibonacci_proof_and_verify() {
-        // Setup the circuit
-        let params = FibonacciTerm::setup().expect("setup failed");
+    fn test_valid_voting_proof() {
+        let num_voters = 3;
+        let num_candidates = 2;
 
-        // Compute the correct result
-        let result = fib100_as_field::<F>();
+        let params = setup(num_voters, num_candidates);
 
-        let statement = Statement { result };
-        let witness = Witness {};
+        // Votes:
+        // V1: [1,0]
+        // V2: [0,1]
+        // V3: [1,0]
+        let votes = to_field_matrix(vec![vec![1, 0], vec![0, 1], vec![1, 0]]);
 
-        // Prove
-        let proof = FibonacciTerm::prove(&params, &statement, &witness).expect("prove failed");
+        // Totals: [2,1]
+        let totals = to_field_vec(vec![2, 1]);
 
-        // Verify
-        let verified = FibonacciTerm::verify(&params, &statement, &proof).expect("verify failed");
-        assert!(verified, "Proof did not verify");
+        let witness = Witness {
+            votes: votes.clone(),
+        };
+        let statement = Statement {
+            totals: totals.clone(),
+        };
+
+        let proof = prove(&params, &witness);
+
+        let verified = verify(&params, &statement, &proof);
+        assert!(verified, "Valid voting proof failed");
+    }
+
+    #[test]
+    fn test_invalid_totals_should_fail() {
+        let num_voters = 3;
+        let num_candidates = 2;
+
+        let params = setup(num_voters, num_candidates);
+
+        let votes = to_field_matrix(vec![vec![1, 0], vec![0, 1], vec![1, 0]]);
+
+        // WRONG totals
+        let wrong_totals = to_field_vec(vec![3, 0]);
+
+        let witness = Witness {
+            votes: votes.clone(),
+        };
+        let statement = Statement {
+            totals: wrong_totals,
+        };
+
+        let proof = prove(&params, &witness);
+
+        let verified = verify(&params, &statement, &proof);
+        assert!(!verified, "Invalid totals should not verify");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_non_binary_vote_should_fail_proving() {
+        let num_voters = 2;
+        let num_candidates = 2;
+
+        let params = setup(num_voters, num_candidates);
+
+        // Invalid vote value: 2
+        let votes = to_field_matrix(vec![vec![2, 0], vec![0, 1]]);
+
+        let witness = Witness { votes };
+
+        // This should panic because binary constraint fails
+        let _proof = prove(&params, &witness);
     }
 }
