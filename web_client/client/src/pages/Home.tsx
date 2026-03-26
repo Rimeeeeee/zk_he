@@ -1,31 +1,8 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
 export default function Home() {
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const NavButton = ({
-    label,
-    path,
-  }: {
-    label: string;
-    path: string;
-  }) => {
-    const active = location.pathname === path;
-    return (
-      <button
-        onClick={() => navigate(path)}
-        className={`px-4 py-2 rounded-lg transition-all duration-200 font-medium ${
-          active
-            ? "text-cyan-400 bg-zinc-800 shadow-inner shadow-cyan-600/30"
-            : "text-gray-300 hover:text-cyan-400 hover:bg-zinc-800/70"
-        }`}
-      >
-        {label}
-      </button>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-linear-to-b from-zinc-900 to-black text-gray-100 flex flex-col items-center justify-center relative overflow-hidden">

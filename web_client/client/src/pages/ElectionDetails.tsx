@@ -17,6 +17,33 @@ interface Election {
   candidates: Candidate[];
 }
 
+interface TallyEntry {
+  candidate_id: number;
+  label: string;
+  votes: number;
+}
+
+interface ProofBundle {
+  system: string;
+  proof_b64: string;
+  verification_key_b64: string;
+  public_totals: number[];
+  verified: boolean;
+  proof_hash: string;
+}
+
+interface ElectionResult {
+  election_id: string;
+  winner_label: string;
+  winner_id: number;
+  totals: TallyEntry[];
+  ballot_count: number;
+  tally_hash: string;
+  generated_at: number;
+  status: string;
+  proof: ProofBundle;
+}
+
 export default function ElectionDetail() {
   const { id } = useParams();
   const [election, setElection] = useState<Election | null>(null);
@@ -25,8 +52,10 @@ export default function ElectionDetail() {
   const [_success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<ElectionResult | null>(null);
+  const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [fetchingResult, setFetchingResult] = useState(false);
+  const [clientProofCheck, setClientProofCheck] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -63,10 +92,11 @@ export default function ElectionDetail() {
         token,
         candidate_id: selected,
       });
-      console.log("Voted:", selected);
-
       setSuccess(true);
       setSelected(null);
+      setResult(null);
+      setResultMessage(null);
+      setClientProofCheck(null);
     } catch (err) {
       console.error("Error submitting vote:", err);
       setError("Failed to submit vote. Please try again.");
@@ -80,14 +110,23 @@ export default function ElectionDetail() {
     setFetchingResult(true);
     setError("");
     setResult(null);
+    setResultMessage(null);
+    setClientProofCheck(null);
+
     try {
       const res = await axios.get(`http://localhost:8080/elections/${id}/result`);
-      if (res.data.winner_label) {
-        setResult(`🏆 Winner: ${res.data.winner_label}`);
+      if (res.data.winner_label && res.data.proof) {
+        const proofOk = await verifyProofChecksum(res.data.proof);
+        setClientProofCheck(
+          proofOk
+            ? "Proof bundle checksum matched in the browser."
+            : "Proof bundle checksum did not match."
+        );
+        setResult(res.data);
       } else if (res.data.message) {
-        setResult(res.data.message);
+        setResultMessage(res.data.message);
       } else {
-        setResult("Result not available yet.");
+        setError("Result not available yet.");
       }
     } catch (err) {
       console.error("Error fetching result:", err);
@@ -126,7 +165,7 @@ export default function ElectionDetail() {
         </h1>
 
         <p className="text-gray-400 text-center mb-6 text-sm">
-          {new Date(election.start_time * 1000).toLocaleString()} →{" "}
+          {new Date(election.start_time * 1000).toLocaleString()} to{" "}
           {new Date(election.end_time * 1000).toLocaleString()}
         </p>
 
@@ -173,13 +212,73 @@ export default function ElectionDetail() {
             {fetchingResult ? "Calculating Result..." : "Get Result"}
           </button>
 
-          {result && (
+          {resultMessage && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-green-400 text-center pt-3 font-medium"
             >
-              {result}
+              {resultMessage}
+            </motion.div>
+          )}
+
+          {result && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5"
+            >
+              <div className="text-green-300 text-lg font-semibold text-center">
+                Winner: {result.winner_label}
+              </div>
+              <div className="mt-2 text-center text-sm text-emerald-100/80">
+                {result.status}
+              </div>
+              <div className="mt-4 grid gap-3 text-sm text-gray-200">
+                <div className="rounded-xl bg-black/20 p-3">
+                  Ballots counted: {result.ballot_count}
+                </div>
+                <div className="rounded-xl bg-black/20 p-3">
+                  Generated:{" "}
+                  {new Date(result.generated_at * 1000).toLocaleString()}
+                </div>
+                <div className="rounded-xl bg-black/20 p-3">
+                  Proof system: {result.proof.system}
+                </div>
+                <div className="rounded-xl bg-black/20 p-3">
+                  Server-side verification:{" "}
+                  {result.proof.verified ? "passed" : "failed"}
+                </div>
+                {clientProofCheck && (
+                  <div className="rounded-xl bg-black/20 p-3">
+                    Browser integrity check: {clientProofCheck}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <div className="text-sm font-semibold uppercase tracking-wide text-emerald-100/80">
+                  Decrypted Totals
+                </div>
+                {result.totals.map((entry) => (
+                  <div
+                    key={entry.candidate_id}
+                    className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm"
+                  >
+                    <span>{entry.label}</span>
+                    <span className="font-semibold text-emerald-200">
+                      {entry.votes} vote{entry.votes === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4 text-xs text-gray-300">
+                <div className="font-medium text-cyan-300">Proof Hash</div>
+                <div className="mt-1 break-all">{result.proof.proof_hash}</div>
+                <div className="mt-3 font-medium text-cyan-300">Tally Hash</div>
+                <div className="mt-1 break-all">{result.tally_hash}</div>
+              </div>
             </motion.div>
           )}
 
@@ -196,4 +295,21 @@ export default function ElectionDetail() {
       </motion.div>
     </div>
   );
+}
+
+async function verifyProofChecksum(proof: ProofBundle): Promise<boolean> {
+  const payload = new TextEncoder().encode(
+    JSON.stringify({
+      proof_b64: proof.proof_b64,
+      verification_key_b64: proof.verification_key_b64,
+      public_totals: proof.public_totals,
+    })
+  );
+
+  const digest = await crypto.subtle.digest("SHA-256", payload);
+  const digestHex = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return digestHex === proof.proof_hash;
 }

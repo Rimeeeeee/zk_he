@@ -41,6 +41,36 @@ pub struct Ballot {
     pub token_hash: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TallyEntry {
+    pub candidate_id: u32,
+    pub label: String,
+    pub votes: u8,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ProofBundle {
+    pub system: String,
+    pub proof_b64: String,
+    pub verification_key_b64: String,
+    pub public_totals: Vec<u8>,
+    pub verified: bool,
+    pub proof_hash: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ElectionResultRecord {
+    pub election_id: String,
+    pub winner_label: String,
+    pub winner_id: u32,
+    pub totals: Vec<TallyEntry>,
+    pub ballot_count: usize,
+    pub tally_hash: String,
+    pub generated_at: u64,
+    pub status: String,
+    pub proof: ProofBundle,
+}
+
 // #[derive(Serialize, Deserialize, Clone, Debug)]
 // pub struct Tally {
 //     pub candidate_id: u32,
