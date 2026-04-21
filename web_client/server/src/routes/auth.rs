@@ -1,9 +1,9 @@
-use actix_web::{post, web, HttpResponse, Scope};
-use rand::{distributions::Alphanumeric, Rng};
-use sha2::{Digest, Sha256};
-use serde_json::json;
-use std::time::{SystemTime, UNIX_EPOCH};
 use crate::{db::Database, models::TokenRecord};
+use actix_web::{HttpResponse, Scope, post, web};
+use rand::{Rng, distributions::Alphanumeric};
+use serde_json::json;
+use sha2::{Digest, Sha256};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[post("/token")]
 async fn issue_token(db: web::Data<Database>) -> HttpResponse {

@@ -13,8 +13,8 @@ use uuid::Uuid;
 use crate::{
     db::Database,
     models::{
-        Ballot, Candidate, Election, ElectionKeys, ElectionResultRecord, ProofBundle, TallyEntry,
-        TokenRecord,
+        Ballot, Candidate, Election, ElectionKeys, ElectionResultRecord, EncryptedTallyEntry,
+        ProofBundle, TallyEntry, TokenRecord,
     },
 };
 use std::path::Path;
@@ -121,6 +121,7 @@ async fn create_election(
     // --- Step 4: Return election id and keys together ---
     HttpResponse::Ok().json(json!({
         "election_id": id,
+        "client_key_b64": STANDARD.encode(&client_bytes),
         "client_key": client_path,
         "server_key": server_path
     }))
@@ -282,7 +283,12 @@ async fn calculate_winner(db: web::Data<Database>, path: web::Path<String>) -> H
 
     if let Some(cached_bytes) = db.get(&result_key) {
         if let Ok(cached) = serde_json::from_slice::<ElectionResultRecord>(&cached_bytes) {
-            if cached.tally_hash == tally_hash {
+            let cached_proof_hash = hash_proof_bundle(
+                &cached.proof.proof_b64,
+                &cached.proof.verification_key_b64,
+                &cached.proof.public_totals,
+            );
+            if cached.tally_hash == tally_hash && cached.proof.proof_hash == cached_proof_hash {
                 return HttpResponse::Ok().json(cached);
             }
         }
@@ -326,22 +332,20 @@ async fn calculate_winner(db: web::Data<Database>, path: web::Path<String>) -> H
             return HttpResponse::BadRequest().json(json!({ "error": message }));
         }
     };
-    let (winner_label, winner_id) = determine_winner(&totals_plain);
     let public_totals: Vec<u8> = totals_plain.iter().map(|entry| entry.votes).collect();
     let proof_bundle = build_proof_bundle(vote_matrix, public_totals.clone());
+    let encrypted_totals = serialize_encrypted_totals(&totals, &election.candidates);
 
     let result = ElectionResultRecord {
         election_id: election_id.clone(),
-        winner_label,
-        winner_id,
-        totals: totals_plain,
+        encrypted_totals,
         ballot_count: ballots.len(),
         tally_hash,
         generated_at: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs(),
-        status: "Encrypted tally decrypted and proved successfully".to_string(),
+        status: "Encrypted tally generated. Verify the proof and decrypt client-side.".to_string(),
         proof: proof_bundle,
     };
 
@@ -405,14 +409,6 @@ fn decrypt_vote_matrix(
         .collect()
 }
 
-fn determine_winner(totals: &[TallyEntry]) -> (String, u32) {
-    totals
-        .iter()
-        .max_by_key(|entry| entry.votes)
-        .map(|entry| (entry.label.clone(), entry.candidate_id))
-        .unwrap_or_else(|| ("Unknown".to_string(), 0))
-}
-
 fn build_proof_bundle(vote_matrix: Vec<Vec<u8>>, public_totals: Vec<u8>) -> ProofBundle {
     let keys = groth::setup(&vote_matrix, &public_totals);
     let proof = groth::prove(&keys, vote_matrix, public_totals.clone());
@@ -433,15 +429,26 @@ fn build_proof_bundle(vote_matrix: Vec<Vec<u8>>, public_totals: Vec<u8>) -> Proo
 }
 
 fn hash_proof_bundle(proof_b64: &str, verification_key_b64: &str, public_totals: &[u8]) -> String {
-    let payload = json!({
-        "proof_b64": proof_b64,
-        "verification_key_b64": verification_key_b64,
-        "public_totals": public_totals,
-    });
+    let payload = (proof_b64, verification_key_b64, public_totals);
     let encoded = serde_json::to_vec(&payload).unwrap();
     let mut hasher = Sha256::new();
     hasher.update(encoded);
     format!("{:x}", hasher.finalize())
+}
+
+fn serialize_encrypted_totals(
+    totals: &[FheUint8],
+    candidates: &[Candidate],
+) -> Vec<EncryptedTallyEntry> {
+    totals
+        .iter()
+        .zip(candidates.iter())
+        .map(|(ciphertext, candidate)| EncryptedTallyEntry {
+            candidate_id: candidate.id,
+            label: candidate.label.clone(),
+            ciphertext_b64: STANDARD.encode(bincode::serialize(ciphertext).unwrap()),
+        })
+        .collect()
 }
 
 pub fn routes() -> Scope {
