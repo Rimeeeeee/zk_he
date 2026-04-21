@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, Scope, get, post, web};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use homomorphic::{FheDecrypt, FheEncrypt, FheTrivialEncrypt};
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -11,10 +12,14 @@ use uuid::Uuid;
 
 use crate::{
     db::Database,
-    models::{Ballot, Candidate, Election, ElectionKeys, TokenRecord},
+    models::{
+        Ballot, Candidate, Election, ElectionKeys, ElectionResultRecord, EncryptedTallyEntry,
+        ProofBundle, TallyEntry, TokenRecord,
+    },
 };
 use std::path::Path;
 use tfhe::{ClientKey, FheUint8};
+use zk::groth;
 
 // Ensure directory exists
 
@@ -116,6 +121,7 @@ async fn create_election(
     // --- Step 4: Return election id and keys together ---
     HttpResponse::Ok().json(json!({
         "election_id": id,
+        "client_key_b64": STANDARD.encode(&client_bytes),
         "client_key": client_path,
         "server_key": server_path
     }))
@@ -243,14 +249,51 @@ async fn submit_ballot(
 async fn calculate_winner(db: web::Data<Database>, path: web::Path<String>) -> HttpResponse {
     let election_id = path.into_inner();
     let election_key = format!("elections:{}", election_id);
+    let result_key = format!("results:{}", election_id);
 
-    // --- Load election ---
     let Some(election_bytes) = db.get(&election_key) else {
         return HttpResponse::NotFound().json(json!({ "error": "Election not found" }));
     };
     let election: Election = serde_json::from_slice(&election_bytes).unwrap();
 
-    // --- Load server & client keys ---
+    let mut ballots: Vec<(String, Vec<u8>, Ballot)> = db
+        .scan_prefix("ballots:")
+        .into_iter()
+        .filter_map(|(key, value)| {
+            let ballot = bincode::deserialize::<Ballot>(&value).ok()?;
+            if ballot.election_id == election_id {
+                Some((key, value, ballot))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if ballots.is_empty() {
+        return HttpResponse::Ok().json(json!({ "message": "No ballots found" }));
+    }
+
+    ballots.sort_by(|a, b| {
+        a.2.timestamp
+            .cmp(&b.2.timestamp)
+            .then_with(|| a.2.ballot_id.cmp(&b.2.ballot_id))
+    });
+
+    let tally_hash = hash_ballots(&ballots);
+
+    if let Some(cached_bytes) = db.get(&result_key) {
+        if let Ok(cached) = serde_json::from_slice::<ElectionResultRecord>(&cached_bytes) {
+            let cached_proof_hash = hash_proof_bundle(
+                &cached.proof.proof_b64,
+                &cached.proof.verification_key_b64,
+                &cached.proof.public_totals,
+            );
+            if cached.tally_hash == tally_hash && cached.proof.proof_hash == cached_proof_hash {
+                return HttpResponse::Ok().json(cached);
+            }
+        }
+    }
+
     let server_path = format!("keys/{}_server.key", election_id);
     let client_path = format!("keys/{}_client.key", election_id);
 
@@ -273,64 +316,139 @@ async fn calculate_winner(db: web::Data<Database>, path: web::Path<String>) -> H
     let client_key: ClientKey = bincode::deserialize(&client_bytes).unwrap();
     set_server_key(server_key);
 
-    // --- Gather ballots ---
-    let mut ballots: Vec<Ballot> = Vec::new();
-    for (_k, v) in db.scan_prefix("ballots:") {
-        if let Ok(ballot) = bincode::deserialize::<Ballot>(&v) {
-            if ballot.election_id == election_id {
-                ballots.push(ballot);
-            }
-        }
-    }
-
-    if ballots.is_empty() {
-        return HttpResponse::Ok().json(json!({ "message": "No ballots found" }));
-    }
-
-    // --- Homomorphically add encrypted tallies ---
     let num_candidates = election.candidates.len();
     let mut totals: Vec<FheUint8> = vec![FheUint8::encrypt_trivial(0u8); num_candidates];
 
-    for ballot in ballots {
+    for (_, _, ballot) in &ballots {
         for (i, (_cid, vote_cipher)) in ballot.encrypted_vector.iter().enumerate() {
             totals[i] = &totals[i] + vote_cipher;
         }
     }
 
-    // --- Call the separate decrypt + winner function ---
-    let result = decrypt_and_find_winner(&totals, &election.candidates, &client_key);
+    let totals_plain = decrypt_totals(&totals, &election.candidates, &client_key);
+    let vote_matrix = match decrypt_vote_matrix(&ballots, &election.candidates, &client_key) {
+        Ok(matrix) => matrix,
+        Err(message) => {
+            return HttpResponse::BadRequest().json(json!({ "error": message }));
+        }
+    };
+    let public_totals: Vec<u8> = totals_plain.iter().map(|entry| entry.votes).collect();
+    let proof_bundle = build_proof_bundle(vote_matrix, public_totals.clone());
+    let encrypted_totals = serialize_encrypted_totals(&totals, &election.candidates);
 
-    HttpResponse::Ok().json(json!({
-        "election_id": election_id,
-        "winner_label": result.0,
-        "winner_id": result.1,
-        "totals": result.2,
-        "status": "Winner decrypted successfully"
-    }))
+    let result = ElectionResultRecord {
+        election_id: election_id.clone(),
+        encrypted_totals,
+        ballot_count: ballots.len(),
+        tally_hash,
+        generated_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        status: "Encrypted tally generated. Verify the proof and decrypt client-side.".to_string(),
+        proof: proof_bundle,
+    };
+
+    db.put(&result_key, &serde_json::to_vec(&result).unwrap());
+
+    HttpResponse::Ok().json(result)
 }
 
-/// Separate function that decrypts tallies and finds the winner
-fn decrypt_and_find_winner(
-    totals: &Vec<FheUint8>,
-    candidates: &Vec<crate::models::Candidate>,
+fn hash_ballots(ballots: &[(String, Vec<u8>, Ballot)]) -> String {
+    let mut hasher = Sha256::new();
+
+    for (key, raw, ballot) in ballots {
+        hasher.update(key.as_bytes());
+        hasher.update(&ballot.timestamp.to_le_bytes());
+        hasher.update(raw);
+    }
+
+    format!("{:x}", hasher.finalize())
+}
+
+fn decrypt_totals(
+    totals: &[FheUint8],
+    candidates: &[crate::models::Candidate],
     client_key: &ClientKey,
-) -> (String, u32, Vec<(String, u8)>) {
+) -> Vec<TallyEntry> {
     let mut plain_totals = Vec::new();
     for (i, ct) in totals.iter().enumerate() {
         let count: u8 = ct.decrypt(client_key);
-        plain_totals.push((candidates[i].label.clone(), count));
+        plain_totals.push(TallyEntry {
+            candidate_id: candidates[i].id,
+            label: candidates[i].label.clone(),
+            votes: count,
+        });
     }
 
-    let (winner_label, _winner_votes) =
-        plain_totals.iter().max_by_key(|(_, count)| *count).unwrap();
+    plain_totals
+}
 
-    let winner_id = candidates
+fn decrypt_vote_matrix(
+    ballots: &[(String, Vec<u8>, Ballot)],
+    candidates: &[Candidate],
+    client_key: &ClientKey,
+) -> Result<Vec<Vec<u8>>, String> {
+    ballots
         .iter()
-        .find(|c| c.label == *winner_label)
-        .map(|c| c.id)
-        .unwrap_or(0);
+        .map(|(_, _, ballot)| {
+            let row: Vec<u8> = ballot
+                .encrypted_vector
+                .iter()
+                .map(|(_, vote_cipher)| vote_cipher.decrypt(client_key))
+                .collect();
 
-    (winner_label.clone(), winner_id, plain_totals)
+            let valid_votes = row.iter().filter(|vote| **vote == 1).count();
+            if row.len() != candidates.len() || valid_votes != 1 || row.iter().any(|vote| *vote > 1)
+            {
+                return Err("Invalid ballot encountered while building proof witness".to_string());
+            }
+
+            Ok(row)
+        })
+        .collect()
+}
+
+fn build_proof_bundle(vote_matrix: Vec<Vec<u8>>, public_totals: Vec<u8>) -> ProofBundle {
+    let keys = groth::setup(&vote_matrix, &public_totals);
+    let proof = groth::prove(&keys, vote_matrix, public_totals.clone());
+    let verified = groth::verify(&keys, &proof, public_totals.clone());
+
+    let proof_b64 = STANDARD.encode(&proof);
+    let verification_key_b64 = STANDARD.encode(&keys.vk);
+    let proof_hash = hash_proof_bundle(&proof_b64, &verification_key_b64, &public_totals);
+
+    ProofBundle {
+        system: "groth16".to_string(),
+        proof_b64,
+        verification_key_b64,
+        public_totals,
+        verified,
+        proof_hash,
+    }
+}
+
+fn hash_proof_bundle(proof_b64: &str, verification_key_b64: &str, public_totals: &[u8]) -> String {
+    let payload = (proof_b64, verification_key_b64, public_totals);
+    let encoded = serde_json::to_vec(&payload).unwrap();
+    let mut hasher = Sha256::new();
+    hasher.update(encoded);
+    format!("{:x}", hasher.finalize())
+}
+
+fn serialize_encrypted_totals(
+    totals: &[FheUint8],
+    candidates: &[Candidate],
+) -> Vec<EncryptedTallyEntry> {
+    totals
+        .iter()
+        .zip(candidates.iter())
+        .map(|(ciphertext, candidate)| EncryptedTallyEntry {
+            candidate_id: candidate.id,
+            label: candidate.label.clone(),
+            ciphertext_b64: STANDARD.encode(bincode::serialize(ciphertext).unwrap()),
+        })
+        .collect()
 }
 
 pub fn routes() -> Scope {

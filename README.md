@@ -21,8 +21,6 @@ This project is a part of our college final year and may contain prospect of res
 
 ### ZK Benchmarks
 
-# ZK Voting Benchmark (10 Voters, 3 Candidates)
-
 | System  | Operation | Lower Bound | Median    | Upper Bound |
 | ------- | --------- | ----------- | --------- | ----------- |
 | Groth16 | Setup     | 7.0629 ms   | 7.1022 ms | 7.1502 ms   |
@@ -31,3 +29,4 @@ This project is a part of our college final year and may contain prospect of res
 | Plonky2 | Setup     | 2.3948 ms   | 2.4304 ms | 2.4810 ms   |
 | Plonky2 | Prove     | 5.4701 ms   | 5.7193 ms | 5.9786 ms   |
 | Plonky2 | Verify    | 1.2570 ms   | 1.2574 ms | 1.2579 ms   |
+

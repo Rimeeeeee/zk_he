@@ -29,7 +29,7 @@ This platform enables users to:
 On terminal 1:
 ``` bash
 cd server
-cargo run
+cargo +nightly run
 ```
 On terminal 2:
 ``` bash
