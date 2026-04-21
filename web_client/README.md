@@ -1,5 +1,4 @@
-<img width="970" height="749" alt="Screenshot 2025-11-09 183536" src="https://github.com/user-attachments/assets/1c2bdf29-5203-4490-b105-7ce7beb453ba" />
-
+<img width="609" height="677" alt="1000076284" src="https://github.com/user-attachments/assets/0fec946c-4bdc-4a6a-b955-dbc316293bb6" />
 ## 🗳️ Private End-to-End Encrypted Voting System (FHE-Powered)
 
 A secure, trustless voting platform built using **Fully Homomorphic Encryption (FHE)**.
