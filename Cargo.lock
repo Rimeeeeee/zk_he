@@ -3668,6 +3668,26 @@ name = "zk_he"
 version = "0.1.0"
 
 [[package]]
+name = "zk_transciphering"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-381",
+ "ark-ff",
+ "ark-groth16",
+ "ark-r1cs-std",
+ "ark-relations",
+ "ark-snark",
+ "ark-std",
+ "criterion",
+ "homomorphic",
+ "rand 0.8.5",
+ "symmetric",
+ "tfhe",
+ "thiserror",
+ "transciphering",
+]
+
+[[package]]
 name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
