@@ -18,6 +18,7 @@ symmetric = { path = "crates/symmetric" }
 homomorphic = { path = "crates/homomorphic" }
 transciphering = { path = "crates/transciphering" }
 zk = { path = "crates/zk" }
+zk_transciphering = { path = "crates/zk_transciphering" }
 
 aes = "0.8"           # AES-128/192/256 core
 block-modes = "0.9"   # For CBC, CFB, OFB, etc.
