@@ -68,6 +68,9 @@ pub struct ProofBundle {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ElectionResultRecord {
     pub election_id: String,
+    pub winner_label: String,
+    pub winner_id: u32,
+    pub totals: Vec<TallyEntry>,
     pub encrypted_totals: Vec<EncryptedTallyEntry>,
     pub ballot_count: usize,
     pub tally_hash: String,

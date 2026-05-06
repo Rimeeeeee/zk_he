@@ -326,6 +326,9 @@ async fn calculate_winner(db: web::Data<Database>, path: web::Path<String>) -> H
     }
 
     let totals_plain = decrypt_totals(&totals, &election.candidates, &client_key);
+    let Some(winner) = totals_plain.iter().max_by_key(|entry| entry.votes).cloned() else {
+        return HttpResponse::Ok().json(json!({ "message": "Result not available yet." }));
+    };
     let vote_matrix = match decrypt_vote_matrix(&ballots, &election.candidates, &client_key) {
         Ok(matrix) => matrix,
         Err(message) => {
@@ -338,6 +341,9 @@ async fn calculate_winner(db: web::Data<Database>, path: web::Path<String>) -> H
 
     let result = ElectionResultRecord {
         election_id: election_id.clone(),
+        winner_label: winner.label.clone(),
+        winner_id: winner.candidate_id,
+        totals: totals_plain,
         encrypted_totals,
         ballot_count: ballots.len(),
         tally_hash,
@@ -345,7 +351,7 @@ async fn calculate_winner(db: web::Data<Database>, path: web::Path<String>) -> H
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs(),
-        status: "Encrypted tally generated. Verify the proof and decrypt client-side.".to_string(),
+        status: "Result generated with proof bundle and decrypted totals.".to_string(),
         proof: proof_bundle,
     };
 
